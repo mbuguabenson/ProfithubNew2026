@@ -26,9 +26,35 @@
     display: none;
 }
 
+
 .injectionDiv {
     height: calc(100vh - 16.4rem);
     position: relative;
     touch-action: none;
     overflow: hidden;
+}
+
+.bot-builder {
+    position: absolute;
+    top: 11.2rem;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    background: var(--general-section-1);
+    width: 100%;
+    
+    &--inactive {
+        visibility: hidden;
+        z-index: -1;
+        pointer-events: none;
+    }
+
+    &--active {
+        visibility: visible;
+    }
+
+    @include mobile-or-tablet-screen {
+        top: 9rem;
+    }
 }
