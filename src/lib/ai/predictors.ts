@@ -178,7 +178,7 @@ export class MultiStepPredictor {
      */
     predictNextN(recentDigits: number[], steps: number = 5): MultiStepPrediction[] {
         const predictions: MultiStepPrediction[] = [];
-        let currentDigits = [...recentDigits];
+        const currentDigits = [...recentDigits];
 
         for (let step = 1; step <= steps; step++) {
             // Method 1: Pattern-based prediction
@@ -421,8 +421,8 @@ export class BacktestingEngine {
     ): BacktestResult {
         let truePositives = 0;
         let falsePositives = 0;
-        let trueNegatives = 0;
-        let falseNegatives = 0;
+        const trueNegatives = 0;
+        const falseNegatives = 0;
         let profitLoss = 0;
 
         // Use sliding window to test predictions

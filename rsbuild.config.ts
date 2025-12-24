@@ -1,9 +1,8 @@
+import path from 'path';
 import { defineConfig } from '@rsbuild/core';
+import { pluginBasicSsl } from '@rsbuild/plugin-basic-ssl';
 import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginSass } from '@rsbuild/plugin-sass';
-import { pluginBasicSsl } from '@rsbuild/plugin-basic-ssl';
-
-const path = require('path');
 
 export default defineConfig({
     plugins: [
@@ -47,6 +46,8 @@ export default defineConfig({
                 GROWTHBOOK_DECRYPTION_KEY: JSON.stringify(process.env.GROWTHBOOK_DECRYPTION_KEY || ''),
             },
         },
+    },
+    resolve: {
         alias: {
             react: path.resolve('./node_modules/react'),
             'react-dom': path.resolve('./node_modules/react-dom'),

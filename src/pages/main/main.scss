@@ -218,8 +218,8 @@
 
     &__run-strategy-wrapper {
         inset-inline-end: 1.6rem;
-        top: 8.8rem;
-        z-index: 2;
+        top: 4.0rem;
+        z-index: 10;
 
         @include desktop-screen {
             position: absolute;
