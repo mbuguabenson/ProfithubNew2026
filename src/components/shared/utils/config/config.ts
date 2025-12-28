@@ -2,10 +2,10 @@ import { isStaging } from '../url/helpers';
 
 export const APP_IDS = {
     LOCALHOST: 114784,
-    TMP_STAGING: 117122,
-    STAGING: 117122,
-    STAGING_BE: 117122,
-    STAGING_ME: 117122,
+    TMP_STAGING: 113831,
+    STAGING: 113831,
+    STAGING_BE: 113831,
+    STAGING_ME: 113831,
     PRODUCTION: 114784,
     PRODUCTION_BE: 114784,
     PRODUCTION_ME: 114784,
@@ -144,6 +144,7 @@ export const getDebugServiceWorker = () => {
 
 export const generateOAuthURL = () => {
     const hostname = window.location.hostname;
+    const lang = window.localStorage.getItem('lang') || 'EN';
     let oauth_url = 'https://oauth.deriv.com/oauth2/authorize';
 
     if (hostname.includes('.deriv.me')) {
@@ -153,8 +154,10 @@ export const generateOAuthURL = () => {
     }
 
     const app_id = getAppId();
-    const redirect_uri = `${window.location.protocol}//${window.location.host}`;
+    const redirect_uri = window.location.origin;
 
-    console.log('[Config] Generated OAuth URL with redirect_uri:', redirect_uri);
-    return `${oauth_url}?app_id=${app_id}&l=${window.localStorage.getItem('lang') || 'EN'}&brand=deriv&redirect_uri=${redirect_uri}`;
+    const login_url = `${oauth_url}?app_id=${app_id}&l=${lang}&brand=deriv&redirect_uri=${redirect_uri}`;
+
+    console.log('[Config] Generated OAuth URL:', login_url);
+    return login_url;
 };
