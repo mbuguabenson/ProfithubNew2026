@@ -2,6 +2,7 @@
 @use 'components/shared/styles/mixins' as *;
 
 .run-panel {
+
     // fix for the RTL issue on tab active line
     .dc-tabs__active-line {
         right: auto;
@@ -55,11 +56,12 @@
 
         &--bot-builder {
             .dc-tabs__list {
-                padding-inline-end: 20rem; // Space for Run button
+                padding-inline-end: 24rem; // increased space for Run button
             }
         }
 
         &--active {
+
             // css for onboard tour overlay
             &:before {
                 content: '';
@@ -86,10 +88,12 @@
             }
 
             &__active {
-                background: var(--general-main-1);
+                background: rgba(255, 68, 79, 0.1); // Premium tint for active tab
+                border-bottom: 2px solid var(--brand-red-coral);
+                transition: background 0.3s ease;
             }
 
-                &__list {
+            &__list {
                 background: var(--general-section-1);
                 justify-content: start;
                 flex-shrink: 0;
@@ -98,7 +102,12 @@
                 scrollbar-width: none;
 
                 &::-webkit-scrollbar {
-                    display: none;
+                    height: 4px;
+                }
+
+                &::-webkit-scrollbar-thumb {
+                    background: var(--border-normal);
+                    border-radius: 2px;
                 }
 
                 &--header {
@@ -125,23 +134,23 @@
                 overflow-y: auto;
                 overflow-x: hidden;
                 height: 100%;
-                
+
                 // Smooth scrolling
                 scroll-behavior: smooth;
-                
+
                 // Custom scrollbar styling
                 &::-webkit-scrollbar {
                     width: 8px;
                 }
-                
+
                 &::-webkit-scrollbar-track {
                     background: rgba(255, 255, 255, 0.05);
                 }
-                
+
                 &::-webkit-scrollbar-thumb {
                     background: rgba(255, 255, 255, 0.2);
                     border-radius: 4px;
-                    
+
                     &:hover {
                         background: rgba(255, 255, 255, 0.3);
                     }
@@ -195,6 +204,11 @@
                 height: 100%;
                 overflow-y: auto;
                 overflow-x: hidden;
+
+                &:hover:not(.dc-tabs__active) {
+                    background: var(--general-hover);
+                    cursor: pointer;
+                }
 
                 @include flex-center;
 
@@ -509,7 +523,7 @@
     }
 
     &__steps {
-        @media (height <= 730px) {
+        @media (height <=730px) {
             max-height: 40vh;
             overflow-y: auto;
         }
@@ -559,7 +573,7 @@
 .joyride-content {
     font-size: 1.4rem;
 
-    @media (height <= 790px) {
+    @media (height <=790px) {
         max-height: 46vh;
         overflow-y: auto;
     }
@@ -773,6 +787,7 @@
 }
 
 @keyframes blink {
+
     0%,
     100% {
         border: 1px solid $color-red;

@@ -297,6 +297,7 @@ const AppWrapper = observer(() => {
                             onTabItemClick={handleTabChange}
                             top
                             history={window.history as any}
+                            is_scrollable
                         >
                             <div
                                 label={
