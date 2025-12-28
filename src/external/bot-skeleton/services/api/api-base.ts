@@ -183,6 +183,8 @@ class APIBase {
         if (!token || !this.api) return;
         this.token = token;
         this.account_id = V2GetActiveClientId() ?? '';
+        console.log('[API] Authorizing with token:', { token: token.substring(0, 8) + '...', account_id: this.account_id });
+
         setIsAuthorizing(true);
         setIsAuthorized(false);
 
@@ -198,20 +200,23 @@ class APIBase {
             };
 
             if (error) {
+                console.error('[API] Authorization Error Response:', error);
                 if (error.code === 'InvalidToken') {
                     const is_tmb_enabled = window.is_tmb_enabled === true;
                     if (Cookies.get('logged_state') === 'true' && !is_tmb_enabled) {
                         globalObserver.emit('InvalidToken', { error });
                     } else {
+                        console.warn('[API] Clearing auth data due to InvalidToken');
                         clearAuthData();
                     }
                 } else {
-                    console.error('Authorization error:', error);
+                    console.error('[API] Authorization error (generic):', error);
                 }
                 setIsAuthorizing(false);
                 return error;
             }
 
+            console.log('[API] Authorization Successful:', { loginid: authorize.loginid, account_list_len: authorize.account_list?.length });
             this.account_info = authorize;
             setAccountList(authorize?.account_list || []);
             setAuthData(authorize);
@@ -228,7 +233,7 @@ class APIBase {
             this.subscribe();
             // this.getSelfExclusion(); commented this so we dont call it from two places
         } catch (e) {
-            console.error('Authorization failed or timed out:', e);
+            console.error('[API] Authorization Exception:', e);
             this.is_authorized = false;
             // Only clear auth data if it's a real failure, not just a timeout during initialization
             // but for now, we follow the existing logic of clearing if fails.
