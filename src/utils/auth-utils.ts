@@ -1,6 +1,4 @@
-import { useStore } from '@/hooks/useStore';
-import { localize } from '@deriv-com/translations';
-import { requestOidcAuthentication as requestOidcAuthenticationBase } from '@deriv-com/auth-client';
+import Cookies from 'js-cookie';
 
 /**
  * Clears authentication data from local storage and reloads the page
@@ -23,16 +21,14 @@ export const clearAuthData = (is_reload: boolean = true): void => {
  * Handles OIDC authentication failure by clearing auth data and showing logged out view
  * @param error - The error that occurred during OIDC authentication
  */
+
 export const handleOidcAuthFailure = (error: any) => {
     console.error('[OIDC] Authentication failure:', error);
-    const { common } = useStore();
-    common?.setError({
-        header: localize('Authentication failed'),
-        message: localize('We were unable to authenticate your account. Please try again.'),
-        redirect_label: localize('Try again'),
-        redirectOnClick: () => window.location.reload(),
-    });
-
-    // Reload the page to show the logged out view
-    window.location.reload();
+    // Clear logged_state to prevent infinite authentication loops
+    Cookies.set('logged_state', 'false');
+    // Optionally clear other auth data
+    localStorage.removeItem('accountsList');
+    localStorage.removeItem('clientAccounts');
 };
+
+

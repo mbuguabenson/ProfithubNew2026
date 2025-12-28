@@ -19,8 +19,14 @@ const Layout = lazy(() => import('../components/layout'));
 const AppRoot = lazy(() => import('./app-root'));
 
 const { TRANSLATIONS_CDN_URL, R2_PROJECT_NAME, CROWDIN_BRANCH_NAME } = process.env;
+// Only use CDN URL if all required variables are present and not empty
+const cdnUrl =
+    TRANSLATIONS_CDN_URL && R2_PROJECT_NAME && CROWDIN_BRANCH_NAME
+        ? `${TRANSLATIONS_CDN_URL}/${R2_PROJECT_NAME}/${CROWDIN_BRANCH_NAME}`
+        : undefined;
+
 const i18nInstance = initializeI18n({
-    cdnUrl: `${TRANSLATIONS_CDN_URL}/${R2_PROJECT_NAME}/${CROWDIN_BRANCH_NAME}`,
+    cdnUrl,
 });
 
 // Simple Suspense wrapper without timeout that causes dark landing page
