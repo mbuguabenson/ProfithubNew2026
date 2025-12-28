@@ -88,21 +88,22 @@
             }
 
             &__active {
-                background: rgba(0, 188, 212, 0.2) !important; // Teal background
-                color: #00bcd4 !important; // Teal text
-                border-bottom: none !important; // Remove underline
+                background: rgba(255, 165, 0, 0.15) !important; // Light orange background
+                color: #ffad00 !important; // Yellow/orange text
+                border-bottom: none !important; // No underline
+                border: none !important; // No borders at all
                 font-weight: 700;
                 transition: all 0.3s ease;
                 border-top-left-radius: 1rem;
                 border-top-right-radius: 1rem;
 
                 svg {
-                    fill: #00bcd4 !important; // Teal icon
+                    fill: #ffad00 !important; // Yellow/orange icon
                 }
             }
 
             &__list {
-                background: #1a237e; // Dark blue for both modes
+                background: #6b2d8f; // Deep purple (matching reference image)
                 justify-content: start;
                 flex-shrink: 0;
                 overflow-x: hidden; // Disable horizontal scrolling
