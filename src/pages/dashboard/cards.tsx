@@ -19,7 +19,7 @@ import {
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { rudderStackSendOpenEvent } from '../../analytics/rudderstack-common-events';
-import { rudderStackSendDashboardClickEvent } => '../../analytics/rudderstack-dashboard';
+import { rudderStackSendDashboardClickEvent } from '../../analytics/rudderstack-dashboard';
 import DashboardBotList from './bot-list/dashboard-bot-list';
 
 type TCardProps = {

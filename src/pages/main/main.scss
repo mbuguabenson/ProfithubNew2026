@@ -88,43 +88,32 @@
             }
 
             &__active {
-                background: rgba(255, 255, 255, 0.15) !important;
-                color: #ffad00 !important; // Yellow text
-                border-bottom: 4px solid #ffad00 !important; // Yellow underline
+                background: rgba(0, 188, 212, 0.2) !important; // Teal background
+                color: #00bcd4 !important; // Teal text
+                border-bottom: none !important; // Remove underline
                 font-weight: 700;
                 transition: all 0.3s ease;
                 border-top-left-radius: 1rem;
                 border-top-right-radius: 1rem;
 
                 svg {
-                    fill: #ffad00 !important; // Yellow icon
+                    fill: #00bcd4 !important; // Teal icon
                 }
             }
 
             &__list {
-                background: #6c3483; // Deep purple background
+                background: #1a237e; // Dark blue for both modes
                 justify-content: start;
                 flex-shrink: 0;
-                overflow-x: auto;
+                overflow-x: hidden; // Disable horizontal scrolling
                 -ms-overflow-style: none;
                 scrollbar-width: none;
                 border: none;
                 padding-top: 0.8rem;
+                flex-wrap: wrap; // Allow tabs to wrap if needed
 
                 &::-webkit-scrollbar {
-                    height: 4px;
-                    display: block; // Ensure it's visible on desktops
-                }
-
-                &::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.2);
-                    border-radius: 2px;
-                }
-
-                &:hover {
-                    &::-webkit-scrollbar-thumb {
-                        background: rgba(255, 255, 255, 0.4);
-                    }
+                    display: none; // Hide scrollbar completely
                 }
 
                 &--header {
