@@ -263,42 +263,37 @@ const AppWrapper = observer(() => {
         [active_tab]
     );
 
-    useOauth2();
-    const isOAuth2Enabled = !!localStorage.getItem('is_oauth2_enabled'); // Fallback or check if it's supposed to be from useOauth2
-    const handleLoginGeneration = async () => {
-        if (!isOAuth2Enabled) {
-            window.location.replace(generateOAuthURL());
-        } else {
-            const getQueryParams = new URLSearchParams(window.location.search);
-            const currency = getQueryParams.get('account') ?? '';
-            const query_param_currency = currency || sessionStorage.getItem('query_param_currency') || 'USD';
+    const { isSingleLoggingIn } = useOauth2();
 
-            try {
-                // First, explicitly wait for TMB status to be determined
-                const tmbEnabled = await isTmbEnabled();
-                // Now use the result of the explicit check
-                if (tmbEnabled) {
-                    await onRenderTMBCheck();
-                } else {
-                    try {
-                        await requestOidcAuthentication({
-                            redirectCallbackUri: `${window.location.origin}/callback`,
-                            ...(query_param_currency
-                                ? {
-                                      state: {
-                                          account: query_param_currency,
-                                      },
-                                  }
-                                : {}),
-                        });
-                    } catch (err) {
-                        handleOidcAuthFailure(err);
-                    }
+    const handleLoginGeneration = async () => {
+        const getQueryParams = new URLSearchParams(window.location.search);
+        const currency = getQueryParams.get('account') ?? '';
+        const query_param_currency = currency || sessionStorage.getItem('query_param_currency') || 'USD';
+
+        try {
+            // Check TMB status first
+            const tmbEnabled = await isTmbEnabled();
+            if (tmbEnabled) {
+                await onRenderTMBCheck();
+            } else {
+                // Use standard OAuth2 authentication
+                try {
+                    await requestOidcAuthentication({
+                        redirectCallbackUri: `${window.location.origin}/callback`,
+                        ...(query_param_currency
+                            ? {
+                                state: {
+                                    account: query_param_currency,
+                                },
+                            }
+                            : {}),
+                    });
+                } catch (err) {
+                    handleOidcAuthFailure(err);
                 }
-            } catch (error) {
-                // eslint-disable-next-line no-console
-                console.error(error);
             }
+        } catch (error) {
+            console.error('Login generation error:', error);
         }
     };
     return (
@@ -569,7 +564,7 @@ const AppWrapper = observer(() => {
                 is_visible={is_dialog_open}
                 onCancel={onCancelButtonClick || undefined}
                 onClose={onCloseDialog || undefined}
-                onConfirm={onOkButtonClick || onCloseDialog || (() => {})}
+                onConfirm={onOkButtonClick || onCloseDialog || (() => { })}
                 portal_element_id='modal_root'
                 title={title}
                 login={handleLoginGeneration}

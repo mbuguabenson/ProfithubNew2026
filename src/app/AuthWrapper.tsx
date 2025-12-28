@@ -54,7 +54,7 @@ const setLocalStorageToken = async (
                 if (api) {
                     const authPromise = api.authorize(loginInfo[0].token);
                     const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Auth Timeout')), 10000)
+                        setTimeout(() => reject(new Error('Auth Timeout')), 15000)
                     );
 
                     const { authorize, error } = (await Promise.race([authPromise, timeoutPromise])) as {

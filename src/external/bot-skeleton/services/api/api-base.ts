@@ -167,7 +167,7 @@ class APIBase {
         try {
             const authPromise = this.api.authorize(this.token);
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Auth Timeout')), 10000)
+                setTimeout(() => reject(new Error('Auth Timeout')), 15000)
             );
 
             const { authorize, error } = (await Promise.race([authPromise, timeoutPromise])) as {
