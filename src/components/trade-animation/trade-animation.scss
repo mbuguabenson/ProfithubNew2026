@@ -78,15 +78,12 @@
     &__run-button {
         width: fit-content;
         height: 100% !important;
-        border-radius: 8px !important;
-        background-color: #ff444f; // Modern orange
-        box-shadow: 0 4px 10px rgba(255, 68, 79, 0.4);
-        border: none;
-        margin-right: 8px;
+        border-start-end-radius: 0 !important;
+        border-end-end-radius: 0 !important;
+        background-color: var(--purchase-main-1);
 
         &:hover {
-            background-color: #ff1f2f !important;
-            transform: translateY(-1px);
+            background-color: var(--purchase-main-1) !important;
         }
     }
 

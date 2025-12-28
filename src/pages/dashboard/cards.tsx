@@ -19,7 +19,7 @@ import {
 import { Localize, localize } from '@deriv-com/translations';
 import { useDevice } from '@deriv-com/ui';
 import { rudderStackSendOpenEvent } from '../../analytics/rudderstack-common-events';
-import { rudderStackSendDashboardClickEvent } from '../../analytics/rudderstack-dashboard';
+import { rudderStackSendDashboardClickEvent } => '../../analytics/rudderstack-dashboard';
 import DashboardBotList from './bot-list/dashboard-bot-list';
 
 type TCardProps = {
@@ -54,6 +54,21 @@ const Cards = observer(({ is_mobile, has_dashboard_strategies }: TCardProps) => 
     };
 
     const actions: TCardArray[] = [
+        {
+            id: 'load-bot',
+            icon: <DerivLightMyComputerIcon height='48px' width='48px' />,
+            content: <Localize i18n_default_text='Load bot' />,
+            callback: () => {
+                toggleLoadModal();
+                setActiveTab(DBOT_TABS.BOT_BUILDER);
+                rudderStackSendOpenEvent({
+                    subpage_name: 'bot_builder',
+                    subform_source: 'dashboard',
+                    subform_name: 'load_strategy',
+                    load_strategy_tab: 'local',
+                });
+            },
+        },
         {
             id: 'my-computer',
             icon: is_mobile ? (
