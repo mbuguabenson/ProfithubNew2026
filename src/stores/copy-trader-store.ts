@@ -86,6 +86,27 @@ export default class CopyTraderStore {
     };
 
     @action
+    addTargetAccount = () => {
+        this.target_accounts.push({
+            token: '',
+            type: 'Target',
+            status: 'Pending',
+            account_type: '-',
+            balance: '-',
+            currency: '-',
+        });
+    };
+
+    @action
+    removeTargetAccount = (index: number) => {
+        const account = this.target_accounts[index];
+        if (account.ws) {
+            account.ws.close();
+        }
+        this.target_accounts.splice(index, 1);
+    };
+
+    @action
     connectAccount = (account: TCopyAccount) => {
         if (account.ws) {
             account.ws.close();
@@ -152,7 +173,8 @@ export default class CopyTraderStore {
         this.target_accounts.forEach(async target => {
             if (target.status === 'Connected' && target.ws) {
                 const multiplier = this.is_mirroring_internal ? this.internal_multiplier : 1;
-                const original_stake = parseFloat(String(contract.buy_price || contract.stake || contract.amount)) || 1;
+                const original_stake =
+                    parseFloat(String(contract.buy_price || (contract as any).stake || (contract as any).amount)) || 1;
                 const stake = original_stake * multiplier;
 
                 try {

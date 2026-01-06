@@ -101,39 +101,76 @@ const CopyTrading = observer(() => {
                     </div>
                 </div>
 
-                <div className='account-card target-card'>
-                    <div className='card-header'>
-                        <div className='card-title'>
-                            <span className='icon'>🎯</span>
-                            <h3>Target Account</h3>
-                        </div>
-                        <span className={`status-badge ${target_accounts[0].status.toLowerCase()}`}>
-                            {target_accounts[0].status}
-                        </span>
-                    </div>
-                    <div className='card-body'>
-                        <div className='input-group'>
-                            <label>API Token</label>
-                            <input
-                                type='password'
-                                placeholder='Enter target token...'
-                                value={target_accounts[0].token}
-                                onChange={e => setTargetToken(0, e.target.value)}
-                            />
-                        </div>
-                        <div className='account-details'>
-                            <div className='detail'>
-                                <span className='label'>Balance</span>
-                                <span className='value'>
-                                    {target_accounts[0].balance} {target_accounts[0].currency}
-                                </span>
+                <div className='target-accounts-wrapper' style={{ display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
+                    {target_accounts.map((account, index) => (
+                        <div key={index} className='account-card target-card'>
+                            <div className='card-header'>
+                                <div className='card-title'>
+                                    <span className='icon'>🎯</span>
+                                    <h3>Target Account #{index + 1}</h3>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span className={`status-badge ${account.status.toLowerCase()}`}>
+                                        {account.status}
+                                    </span>
+                                    {target_accounts.length > 1 && (
+                                        <button
+                                            onClick={() => copy_trader.removeTargetAccount(index)}
+                                            style={{ background: 'none', border: 'none', color: '#f43f5e', cursor: 'pointer', fontSize: '1.2rem' }}
+                                            title="Remove Account"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            <div className='detail'>
-                                <span className='label'>Trades</span>
-                                <span className='value'>{target_accounts[0].trades_count || 0}</span>
+                            <div className='card-body'>
+                                <div className='input-group'>
+                                    <label>API Token</label>
+                                    <input
+                                        type='password'
+                                        placeholder='Enter target token...'
+                                        value={account.token}
+                                        onChange={e => setTargetToken(index, e.target.value)}
+                                    />
+                                </div>
+                                <div className='account-details'>
+                                    <div className='detail'>
+                                        <span className='label'>Balance</span>
+                                        <span className='value'>
+                                            {account.balance} {account.currency}
+                                        </span>
+                                    </div>
+                                    <div className='detail'>
+                                        <span className='label'>Trades</span>
+                                        <span className='value'>{account.trades_count || 0}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    ))}
+
+                    <button
+                        className='add-account-btn'
+                        onClick={copy_trader.addTargetAccount}
+                        style={{
+                            padding: '1rem',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            border: '1px dashed rgba(255, 255, 255, 0.2)',
+                            borderRadius: '12px',
+                            color: 'var(--text-less-prominent)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.9rem',
+                            fontWeight: 600,
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <span>+</span> Add Another Target Account
+                    </button>
                 </div>
             </div>
 
