@@ -5,8 +5,8 @@ import { useStore } from '@/hooks/useStore';
 import { Localize } from '@deriv-com/translations';
 
 const DigitStats = observer(() => {
-    const { auto_trader, app } = useStore();
-    const { digit_stats, sample_size, setSampleSize, updateDigitStats, symbol, last_digit } = auto_trader;
+    const { smart_trading, app } = useStore();
+    const { digit_stats, stats_sample_size, setStatsSampleSize, updateDigitStats, symbol, last_digit } = smart_trading;
     const { api_helpers_store } = app;
 
     useEffect(() => {
@@ -18,19 +18,35 @@ const DigitStats = observer(() => {
 
         const monitorTicks = async () => {
             try {
+                // Request enough ticks to cover the largest sample size
                 const callback = (ticks: { quote: string | number }[]) => {
                     if (is_mounted && ticks && ticks.length > 0) {
                         const latest = ticks[ticks.length - 1];
-                        const last_digits = ticks.slice(-sample_size).map(t => {
-                            const quote_str = String(t.quote);
+                        // Convert quotes to digits - Access store ACTIVE SYMBOLS safely
+                        const active_symbols = smart_trading.active_symbols_data;
+                        const decimals = active_symbols && active_symbols[symbol]?.pip
+                            ? String(active_symbols[symbol].pip).split('.')[1]?.length || 2
+                            : 2;
+
+                        const digits = ticks.map(t => {
+                            let quote_val = t.quote;
+                            let quote_str: string;
+                            if (typeof quote_val === 'number') {
+                                quote_str = quote_val.toFixed(decimals);
+                            } else {
+                                quote_str = String(quote_val);
+                            }
                             const digit = parseInt(quote_str[quote_str.length - 1]);
                             return isNaN(digit) ? 0 : digit;
                         });
-                        updateDigitStats(last_digits, latest.quote);
+
+                        // Pass ALL digits to store
+                        updateDigitStats(digits, latest.quote);
                     }
                 };
 
                 const key = await ticks_service.monitor({ symbol, callback });
+
                 if (is_mounted) {
                     listenerKey = key;
                 } else {
@@ -49,31 +65,40 @@ const DigitStats = observer(() => {
                 ticks_service.stopMonitor({ symbol, key: listenerKey });
             }
         };
-    }, [sample_size, updateDigitStats, api_helpers_store?.ticks_service, symbol]);
+    }, [stats_sample_size, updateDigitStats, api_helpers_store?.ticks_service, symbol]);
 
-    if (!api_helpers_store) return null;
+    // ... (rest of logic) ...
 
     const maxCount = useMemo(() => Math.max(...digit_stats.map(s => s.count)), [digit_stats]);
     const minCount = useMemo(() => Math.min(...digit_stats.map(s => s.count)), [digit_stats]);
 
     return (
         <div className='digit-stats'>
-            <div className='digit-stats__title'>
-                <Localize i18n_default_text='Digit Distribution' />
-                <div className='digit-stats__controls'>
-                    <div className='sample-selector'>
-                        {[25, 50, 100, 500, 1000, 5000].map(val => (
-                            <div
-                                key={val}
-                                className={classNames('sample-selector__item', {
-                                    'sample-selector__item--active': sample_size === val,
-                                })}
-                                onClick={() => setSampleSize(val)}
-                            >
-                                {val}
-                            </div>
-                        ))}
-                    </div>
+            <div className='digit-stats__header' style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div className='digit-stats__title' style={{ marginBottom: 0 }}>
+                    <Localize i18n_default_text='Digit Distribution' />
+                </div>
+                <div className='stats-controls'>
+                    <select
+                        value={stats_sample_size}
+                        onChange={(e) => setStatsSampleSize(Number(e.target.value))}
+                        className='premium-select'
+                        style={{
+                            background: 'var(--general-main-1)',
+                            color: 'var(--text-prominent)',
+                            border: '1px solid var(--text-less-prominent)',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            outline: 'none'
+                        }}
+                    >
+                        <option value={25}>25 Ticks</option>
+                        <option value={50}>50 Ticks</option>
+                        <option value={100}>100 Ticks</option>
+                        <option value={500}>500 Ticks</option>
+                        <option value={1000}>1000 Ticks</option>
+                    </select>
                 </div>
             </div>
             <div className='digit-stats__grid'>

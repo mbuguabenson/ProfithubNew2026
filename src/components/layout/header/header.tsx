@@ -190,11 +190,14 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
             })}
         >
             <Wrapper variant='left'>
-                <div className='header-branding'>
-                    <div className='brand-logo'>P</div>
+                <div className='header-branding' onClick={() => window.location.assign('/')}>
+                    <div className='brand-logo'>
+                        <span className='logo-letter'>P</span>
+                        <div className='logo-glow' />
+                    </div>
                     <div className='brand-details'>
                         <span className='brand-title'>Profithub</span>
-                        <span className='brand-subtitle'>Powered by Deriv</span>
+                        <span className='brand-subtitle'>Pro Trading Suite</span>
                     </div>
                 </div>
                 <MobileMenu />

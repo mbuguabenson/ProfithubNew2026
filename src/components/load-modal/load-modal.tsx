@@ -87,13 +87,15 @@ const LoadModal: React.FC = observer(() => {
             is_open={is_load_modal_open}
             toggleModal={() => {
                 toggleLoadModal();
-                rudderStackSendCloseEvent({
-                    subform_name: 'load_strategy',
-                    load_strategy_tab: LOAD_MODAL_TABS[active_index + (!isDesktop ? 1 : 0)],
-                } as any);
+                if (LOAD_MODAL_TABS[active_index]) {
+                    rudderStackSendCloseEvent({
+                        subform_name: 'load_strategy',
+                        load_strategy_tab: LOAD_MODAL_TABS[active_index],
+                    } as any);
+                }
             }}
             onEntered={onEntered}
-            elements_to_ignore={[document.querySelector('.injectionDiv') as HTMLElement]}
+            elements_to_ignore={([document.activeElement].filter(Boolean) as HTMLElement[])}
         >
             <Modal.Body>
                 <Tabs

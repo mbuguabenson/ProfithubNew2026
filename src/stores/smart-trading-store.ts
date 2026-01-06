@@ -42,8 +42,9 @@ export interface TStrategy {
     payout: number;
     minConfidence: number;
     description: string;
-    is_active: boolean;
-    status: string;
+    is_active: boolean; // For automated triggers
+    is_running: boolean; // For Auto24 independent run state
+    status: 'idle' | 'waiting' | 'trading' | 'error';
     stake: number;
     martingale: number;
     current_stake: number;
@@ -59,6 +60,29 @@ export interface TStrategy {
     target_digit?: number;
     trade_type?: string;
     prediction?: number;
+    // Risk Management per bot
+    take_profit: number;
+    stop_loss: number;
+    max_consecutive_losses: number;
+    enable_tp_sl: boolean;
+    is_max_loss_enabled: boolean;
+    // Stats per bot
+    total_wins: number;
+    total_losses: number;
+    profit_loss: number;
+    consecutive_losses: number;
+    // Advanced Logic Fields
+    market_message?: string;
+    is_unstable?: boolean;
+    suggested_prediction?: string | number;
+    power_history?: number[][]; // Array of digit percentages history
+    // Per-Bot Market Selection and Auto-Trade
+    selected_symbol?: string;
+    current_price?: string | number;
+    last_digit?: number | null;
+    auto_trade_enabled?: boolean;
+    // Per-Bot Digit Stats
+    bot_digit_stats?: TSmartDigitStat[];
 }
 
 export type TTradeHistory = {
@@ -130,7 +154,7 @@ export default class SmartTradingStore {
     @observable accessor last_digit: number | null = null;
     @observable accessor is_connected = false;
     @observable accessor markets: { group: string; items: { value: string; label: string }[] }[] = [];
-    @observable accessor active_symbols_data: Record<string, { pip: number; symbol: string }> = {};
+    @observable accessor active_symbols_data: Record<string, { pip: number; symbol: string; display_name: string }> = {};
 
     // V-SENSE™ TurboExec Bot State
     @observable accessor is_turbo_bot_running: boolean = false;
@@ -156,6 +180,60 @@ export default class SmartTradingStore {
         signal: TradingSignal;
     } | null = null;
 
+    // Market Scanning State
+    @observable accessor is_scanning = false;
+    @observable accessor is_scan_expanded = false; // New state for expanded view
+    @observable accessor best_market = '';
+    @observable accessor market_fit_score = 0;
+    @observable accessor scan_results: { symbol: string; score: number; reason: string }[] = [];
+
+    // Comprehensive Market Scanner Results
+    @observable accessor all_markets_stats: Array<{
+        symbol: string;
+        price: string;
+        last_digit: number;
+        even_pct: number;
+        odd_pct: number;
+        over_pct: number;
+        under_pct: number;
+        top_matches: number[];
+        differs_targets: number[];
+        timestamp: number;
+        score: number;
+        reason: string;
+    }> = [];
+
+    // Stats Visualization State
+    @observable accessor stats_sample_size = 100;
+
+    get last_20_digits() {
+        return this.ticks.slice(-20);
+    }
+
+    get stats_on_sample() {
+        const slice = this.ticks.slice(-this.stats_sample_size);
+        const even = slice.filter(d => d % 2 === 0).length;
+        const odd = slice.length - even;
+        const over = slice.filter(d => d > 4).length; // 5,6,7,8,9
+        const under = slice.length - over; // 0,1,2,3,4
+
+        return {
+            total: slice.length,
+            even, odd, over, under,
+            evenProb: slice.length ? (even / slice.length) * 100 : 0,
+            oddProb: slice.length ? (odd / slice.length) * 100 : 0,
+            overProb: slice.length ? (over / slice.length) * 100 : 0,
+            underProb: slice.length ? (under / slice.length) * 100 : 0,
+        };
+    }
+
+    @action
+    setStatsSampleSize = (size: number) => {
+        this.stats_sample_size = size;
+        // Trigger a re-fetch or re-calculation if needed, 
+        // but typically ticks are strictly updated via updateDigitStats
+    };
+
     private analysis_engine = new AnalysisEngine(100);
 
     // Automated Strategies State
@@ -166,14 +244,30 @@ export default class SmartTradingStore {
             contractTypes: ['DIGITEVEN', 'DIGITODD'],
             defaultMultiplier: 2.1,
             payout: 1.95,
-            minConfidence: 56,
+            minConfidence: 55,
             description: 'Trade even vs odd digits',
             is_active: false,
+            is_running: false,
             status: 'idle',
             stake: 1.0,
             martingale: 2.1,
             current_stake: 1.0,
             ticks: 1,
+            take_profit: 10,
+            stop_loss: 10,
+            max_consecutive_losses: 5,
+            enable_tp_sl: false,
+            is_max_loss_enabled: false,
+            total_wins: 0,
+            total_losses: 0,
+            profit_loss: 0,
+            consecutive_losses: 0,
+            market_message: 'Waiting for signal...',
+            is_unstable: false,
+            power_history: [],
+            selected_symbol: 'R_100',
+            auto_trade_enabled: false,
+            bot_digit_stats: Array.from({ length: 10 }, (_, i) => ({ digit: i, count: 0, percentage: 0 })),
         },
         OVER3UNDER6: {
             id: 'OVER3UNDER6',
@@ -185,11 +279,27 @@ export default class SmartTradingStore {
             barrier: { over: 3, under: 6 },
             description: 'Trade digits over 3 or under 6',
             is_active: false,
+            is_running: false,
             status: 'idle',
             stake: 1.0,
             martingale: 2.6,
             current_stake: 1.0,
             ticks: 1,
+            take_profit: 10,
+            stop_loss: 10,
+            max_consecutive_losses: 5,
+            enable_tp_sl: false,
+            is_max_loss_enabled: false,
+            total_wins: 0,
+            total_losses: 0,
+            profit_loss: 0,
+            consecutive_losses: 0,
+            market_message: 'Waiting for signal...',
+            is_unstable: false,
+            power_history: [],
+            selected_symbol: 'R_100',
+            auto_trade_enabled: false,
+            bot_digit_stats: Array.from({ length: 10 }, (_, i) => ({ digit: i, count: 0, percentage: 0 })),
         },
         OVER2UNDER7: {
             id: 'OVER2UNDER7',
@@ -201,11 +311,27 @@ export default class SmartTradingStore {
             barrier: { over: 2, under: 7 },
             description: 'Trade digits over 2 or under 7',
             is_active: false,
+            is_running: false,
             status: 'idle',
             stake: 1.0,
             martingale: 3.5,
             current_stake: 1.0,
             ticks: 1,
+            take_profit: 10,
+            stop_loss: 10,
+            max_consecutive_losses: 5,
+            enable_tp_sl: false,
+            is_max_loss_enabled: false,
+            total_wins: 0,
+            total_losses: 0,
+            profit_loss: 0,
+            consecutive_losses: 0,
+            market_message: 'Waiting for signal...',
+            is_unstable: false,
+            power_history: [],
+            selected_symbol: 'R_100',
+            auto_trade_enabled: false,
+            bot_digit_stats: Array.from({ length: 10 }, (_, i) => ({ digit: i, count: 0, percentage: 0 })),
         },
         MATCHES: {
             id: 'MATCHES',
@@ -216,11 +342,27 @@ export default class SmartTradingStore {
             minConfidence: 15,
             description: 'Predict exact digit match',
             is_active: false,
+            is_running: false,
             status: 'idle',
             stake: 1.0,
             martingale: 10,
             current_stake: 1.0,
             ticks: 1,
+            take_profit: 10,
+            stop_loss: 10,
+            max_consecutive_losses: 5,
+            enable_tp_sl: false,
+            is_max_loss_enabled: false,
+            total_wins: 0,
+            total_losses: 0,
+            profit_loss: 0,
+            consecutive_losses: 0,
+            market_message: 'Waiting for signal...',
+            is_unstable: false,
+            power_history: [],
+            selected_symbol: 'R_100',
+            auto_trade_enabled: false,
+            bot_digit_stats: Array.from({ length: 10 }, (_, i) => ({ digit: i, count: 0, percentage: 0 })),
         },
         DIFFERS: {
             id: 'DIFFERS',
@@ -231,11 +373,27 @@ export default class SmartTradingStore {
             minConfidence: 85,
             description: 'Predict digit will NOT match',
             is_active: false,
+            is_running: false,
             status: 'idle',
             stake: 1.0,
             martingale: 1.1,
             current_stake: 1.0,
             ticks: 1,
+            take_profit: 10,
+            stop_loss: 10,
+            max_consecutive_losses: 5,
+            enable_tp_sl: false,
+            is_max_loss_enabled: false,
+            total_wins: 0,
+            total_losses: 0,
+            profit_loss: 0,
+            consecutive_losses: 0,
+            market_message: 'Waiting for signal...',
+            is_unstable: false,
+            power_history: [],
+            selected_symbol: 'R_100',
+            auto_trade_enabled: false,
+            bot_digit_stats: Array.from({ length: 10 }, (_, i) => ({ digit: i, count: 0, percentage: 0 })),
         },
     };
 
@@ -304,9 +462,12 @@ export default class SmartTradingStore {
                 const last_char = price_str[price_str.length - 1];
                 const current_digit = parseInt(last_char);
                 if (!isNaN(current_digit)) {
-                    this.last_digit = current_digit;
+                    // Use the last digit from the input array which comes from the source of truth
+                    // avoiding string parsing issues (e.g. "1.50" -> "1.5" -> 5 instead of 0)
+                    const safe_last_digit = last_digits[last_digits.length - 1];
+                    this.last_digit = safe_last_digit !== undefined ? safe_last_digit : current_digit;
 
-                    if (current_digit % 2 === 0) {
+                    if (this.last_digit % 2 === 0) {
                         this.consecutive_even++;
                         this.consecutive_odd = 0;
                     } else {
@@ -347,7 +508,21 @@ export default class SmartTradingStore {
             }
         });
 
+        this.updatePowerHistory(stats);
         this.checkStrategyTriggers();
+    };
+
+    @action
+    updatePowerHistory = (current_stats: TSmartDigitStat[]) => {
+        Object.values(this.strategies).forEach(strategy => {
+            if (!strategy.is_running) return;
+
+            const percentages = current_stats.map(s => s.percentage);
+            const history = [...(strategy.power_history || [])];
+            history.push(percentages);
+            if (history.length > 5) history.shift();
+            strategy.power_history = history;
+        });
     };
 
     @action
@@ -434,7 +609,7 @@ export default class SmartTradingStore {
             runInAction(() => {
                 if (symbols && Array.isArray(symbols)) {
                     const groups: Record<string, { group: string; items: { value: string; label: string }[] }> = {};
-                    const symbolData: Record<string, { pip: number; symbol: string }> = {};
+                    const symbolData: Record<string, { pip: number; symbol: string; display_name: string }> = {};
 
                     symbols.forEach((s: { is_trading_suspended: number | boolean; market_display_name?: string; market: string; symbol: string; display_name: string; pip: number }) => {
                         if (s.is_trading_suspended) return;
@@ -737,77 +912,82 @@ export default class SmartTradingStore {
 
     @action
     checkStrategyTriggers = () => {
-        if (this.active_subtab !== 'automated' && !this.is_smart_auto24_running) return;
-
-        if (this.is_smart_auto24_running) {
-            this.runSmartAuto24Loop();
-            return;
-        }
-
+        // 1. Run Auto-Trading bots (independent states)
         Object.values(this.strategies).forEach(strategy => {
-            if (!strategy.is_active || strategy.status !== 'waiting') return;
-
-            let triggered = false;
-            const probs = this.calculateProbabilities();
-
-            switch (strategy.id) {
-                case 'even_odd_digits': {
-                    const last_digits = this.ticks.slice(-(strategy.check_last_x || 5));
-                    const target = strategy.target_pattern === 'Even' ? 0 : 1;
-                    triggered =
-                        last_digits.length === (strategy.check_last_x || 5) && last_digits.every(d => d % 2 === target);
-                    break;
-                }
-                case 'even_odd_percentages': {
-                    const val = strategy.target_side === 'Even' ? probs.even : probs.odd;
-                    triggered = val >= strategy.threshold_pct!;
-                    break;
-                }
-                case 'over_under_digits': {
-                    const last_digits = this.ticks.slice(-(strategy.check_last_x || 3));
-                    const is_greater = strategy.condition === 'Greater than';
-                    triggered =
-                        last_digits.length === (strategy.check_last_x || 3) &&
-                        last_digits.every(d => (is_greater ? d > strategy.threshold_val! : d < strategy.threshold_val!));
-                    break;
-                }
-                case 'over_under_percentages': {
-                    const val = strategy.target_type === 'Over %' ? probs.over : probs.under;
-                    triggered = val >= strategy.threshold_pct!;
-                    break;
-                }
-                case 'rise_fall': {
-                    const rise_pct =
-                        (this.consecutive_even / (this.consecutive_even + this.consecutive_odd || 1)) * 100;
-                    const val = strategy.target_side === 'Rise' ? rise_pct : 100 - rise_pct;
-                    triggered = val >= strategy.threshold_pct!;
-                    break;
-                }
-                case 'matches_differs': {
-                    const digit_stat = this.digit_stats.find(s => s.digit === strategy.target_digit);
-                    const val =
-                        strategy.target_type === 'Matches %'
-                            ? digit_stat?.percentage || 0
-                            : 100 - (digit_stat?.percentage || 0);
-                    triggered = val >= strategy.threshold_pct!;
-                    break;
-                }
-            }
-
-            if (triggered) {
-                this.executeStrategyTrade(strategy.id);
+            if (strategy.is_running) {
+                this.runStrategyLoop(strategy.id);
             }
         });
+
+        // 2. Run Automated Trigger bots (only if tab is active)
+        if (this.active_subtab === 'automated') {
+            Object.values(this.strategies).forEach(strategy => {
+                if (!strategy.is_active || strategy.status !== 'waiting' || strategy.is_running) return;
+
+                let triggered = false;
+                const probs = this.calculateProbabilities();
+
+                switch (strategy.id) {
+                    case 'even_odd_digits': {
+                        const last_digits = this.ticks.slice(-(strategy.check_last_x || 5));
+                        const target = strategy.target_pattern === 'Even' ? 0 : 1;
+                        triggered =
+                            last_digits.length === (strategy.check_last_x || 5) && last_digits.every(d => d % 2 === target);
+                        break;
+                    }
+                    case 'even_odd_percentages': {
+                        const val = strategy.target_side === 'Even' ? probs.even : probs.odd;
+                        triggered = val >= strategy.threshold_pct!;
+                        break;
+                    }
+                    case 'over_under_digits': {
+                        const last_digits = this.ticks.slice(-(strategy.check_last_x || 3));
+                        const is_greater = strategy.condition === 'Greater than';
+                        triggered =
+                            last_digits.length === (strategy.check_last_x || 3) &&
+                            last_digits.every(d => (is_greater ? d > strategy.threshold_val! : d < strategy.threshold_val!));
+                        break;
+                    }
+                    case 'over_under_percentages': {
+                        const val = strategy.target_type === 'Over %' ? probs.over : probs.under;
+                        triggered = val >= strategy.threshold_pct!;
+                        break;
+                    }
+                    case 'rise_fall': {
+                        const rise_pct =
+                            (this.consecutive_even / (this.consecutive_even + this.consecutive_odd || 1)) * 100;
+                        const val = strategy.target_side === 'Rise' ? rise_pct : 100 - rise_pct;
+                        triggered = val >= strategy.threshold_pct!;
+                        break;
+                    }
+                    case 'matches_differs': {
+                        const digit_stat = this.digit_stats.find(s => s.digit === strategy.target_digit);
+                        const val =
+                            strategy.target_type === 'Matches %'
+                                ? digit_stat?.percentage || 0
+                                : 100 - (digit_stat?.percentage || 0);
+                        triggered = val >= strategy.threshold_pct!;
+                        break;
+                    }
+                }
+
+                if (triggered) {
+                    this.executeStrategyTrade(strategy.id);
+                }
+            });
+        }
     };
 
     @action
-    runSmartAuto24Loop = async () => {
-        const strategy_id = this.smart_auto24_strategy;
+    runStrategyLoop = async (strategy_id: string) => {
         const strategy = this.strategies[strategy_id];
-        if (!strategy || strategy.status === 'trading' || !api_base.api) return;
+        if (!strategy || strategy.status === 'trading' || !api_base.api || !strategy.is_running) return;
 
-        if (!this.checkRiskLimits()) {
-            this.is_smart_auto24_running = false;
+        if (!this.checkRiskLimits(strategy)) {
+            runInAction(() => {
+                strategy.is_running = false;
+                strategy.status = 'idle';
+            });
             return;
         }
 
@@ -817,93 +997,263 @@ export default class SmartTradingStore {
         }
     };
 
+    @action
+    toggleBot = (strategy_id: string) => {
+        const strategy = this.strategies[strategy_id];
+        if (strategy) {
+            strategy.is_running = !strategy.is_running;
+            if (strategy.is_running) {
+                strategy.status = 'waiting';
+            } else {
+                strategy.status = 'idle';
+            }
+        }
+    };
+
+    @action
+    updateStrategySetting = (strategy_id: string, key: keyof TStrategy, value: any) => {
+        const strategy = this.strategies[strategy_id];
+        if (strategy) {
+            (strategy as any)[key] = value;
+        }
+    };
+
+    @action
+    runSmartAuto24Loop = async () => {
+        // This is legacy now, but keeping for compatibility if referenced elsewhere
+        await this.runStrategyLoop(this.smart_auto24_strategy);
+    };
+
     analyzeMarket = (strategy_id: string) => {
         const digits = this.ticks;
         const strategy = this.strategies[strategy_id];
+        if (!strategy || !this.digit_stats) return { action: 'WAIT' };
+
+        const sorted_stats = [...this.digit_stats].sort((a, b) => b.percentage - a.percentage);
+        const most_appearing = sorted_stats[0].digit;
+        const second_most = sorted_stats[1].digit;
+        const least_appearing = sorted_stats[sorted_stats.length - 1].digit;
+
+        const getPowerTrend = (digit: number) => {
+            const history = strategy.power_history || [];
+            if (history.length < 2) return 'neutral';
+            const current = history[history.length - 1][digit];
+            const previous = history[history.length - 2][digit];
+            if (current > previous) return 'increasing';
+            if (current < previous) return 'decreasing';
+            return 'neutral';
+        };
 
         switch (strategy_id) {
             case 'EVENODD': {
-                const recent = digits.slice(-100);
-                const evenCount = recent.filter(d => d % 2 === 0).length;
-                const evenPercent = (evenCount / 100) * 100;
-                const oddPercent = 100 - evenPercent;
+                const is_even = (d: number) => d % 2 === 0;
+                const most_is_even = is_even(most_appearing);
+                const second_is_even = is_even(second_most);
+                const least_is_even = is_even(least_appearing);
 
-                const dominant = evenPercent > oddPercent ? 'EVEN' : 'ODD';
-                const confidence = Math.max(evenPercent, oddPercent);
+                const even_pct = this.digit_stats.filter(s => is_even(s.digit)).reduce((acc, s) => acc + s.percentage, 0);
+                const odd_pct = 100 - even_pct;
 
-                return {
-                    action: confidence >= strategy.minConfidence ? 'TRADE' : 'WAIT',
-                    contractType: dominant === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD',
-                    confidence,
-                };
+                // Check for unstable market (decreasing power)
+                const history = strategy.power_history || [];
+                if (history.length >= 2) {
+                    const current_dominant_pct = Math.max(even_pct, odd_pct);
+                    const prev_even = history[history.length - 2].filter((_, i) => is_even(i)).reduce((a, b) => a + b, 0);
+                    const prev_odd = 100 - prev_even;
+                    const prev_dominant_pct = Math.max(prev_even, prev_odd);
+
+                    if (current_dominant_pct < prev_dominant_pct) {
+                        strategy.is_unstable = true;
+                        strategy.market_message = 'UNSTABLE MARKET - Power Decreasing';
+                        return { action: 'WAIT' };
+                    }
+                }
+                strategy.is_unstable = false;
+
+                if (most_is_even && second_is_even && least_is_even && even_pct >= 55) {
+                    strategy.market_message = `Strong EVEN market (${even_pct.toFixed(1)}%) - Waiting for entry...`;
+
+                    // Entry: 2+ consecutive odd numbers, then top even appears and trend is rising
+                    const last_two = digits.slice(-2);
+                    const last_digit = digits[digits.length - 1];
+                    if (last_two.every(d => !is_even(d)) && is_even(last_digit)) {
+                        const entry_digit_power = getPowerTrend(last_digit);
+                        const most_power = getPowerTrend(most_appearing);
+                        const least_power = getPowerTrend(least_appearing);
+
+                        if (entry_digit_power === 'increasing' || most_power === 'increasing' || least_power === 'increasing') {
+                            return { action: 'TRADE', contractType: 'DIGITEVEN', confidence: even_pct };
+                        }
+                    }
+                } else if (!most_is_even && !second_is_even && !least_is_even && odd_pct >= 55) {
+                    strategy.market_message = `Strong ODD market (${odd_pct.toFixed(1)}%) - Waiting for entry...`;
+
+                    const last_two = digits.slice(-2);
+                    const last_digit = digits[digits.length - 1];
+                    if (last_two.every(d => is_even(d)) && !is_even(last_digit)) {
+                        const entry_digit_power = getPowerTrend(last_digit);
+                        const most_power = getPowerTrend(most_appearing);
+                        const least_power = getPowerTrend(least_appearing);
+
+                        if (entry_digit_power === 'increasing' || most_power === 'increasing' || least_power === 'increasing') {
+                            return { action: 'TRADE', contractType: 'DIGITODD', confidence: odd_pct };
+                        }
+                    }
+                } else {
+                    strategy.market_message = 'Neutral Market - Waiting for parity alignment';
+                }
+                return { action: 'WAIT' };
             }
             case 'OVER3UNDER6':
             case 'OVER2UNDER7': {
-                const recent = digits.slice(-50);
-                const barrier = strategy.barrier as { over: number; under: number };
-                const overCount = recent.filter(d => d > barrier.over).length;
-                const underCount = recent.filter(d => d < barrier.under).length;
+                const over_pct = this.digit_stats.filter(s => s.digit > 4).reduce((acc, s) => acc + s.percentage, 0);
+                const under_pct = 100 - over_pct;
 
-                const overPercent = (overCount / 50) * 100;
-                const underPercent = (underCount / 50) * 100;
+                const is_over = over_pct >= under_pct;
+                const best_bias_pct = Math.max(over_pct, under_pct);
 
-                const dominant = overPercent > underPercent ? 'OVER' : 'UNDER';
-                const confidence = Math.max(overPercent, underPercent);
+                // Track aggregate power trend
+                const history = strategy.power_history || [];
+                const prev_pct = history.length >= 2
+                    ? (is_over
+                        ? history[history.length - 2].slice(5).reduce((a, b) => a + b, 0)
+                        : history[history.length - 2].slice(0, 5).reduce((a, b) => a + b, 0))
+                    : best_bias_pct;
 
-                return {
-                    action: confidence >= strategy.minConfidence ? 'TRADE' : 'WAIT',
-                    contractType: dominant === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER',
-                    prediction: dominant === 'OVER' ? (strategy.barrier as { over: number; under: number }).over : (strategy.barrier as { over: number; under: number }).under,
-                    confidence,
-                };
-            }
-            case 'MATCHES':
-            case 'DIFFERS': {
-                const recent = digits.slice(-50);
-                const counts = Array(10).fill(0);
-                recent.forEach(d => counts[d]++);
+                const power_increasing = best_bias_pct > prev_pct;
+                const power_decreasing = best_bias_pct < prev_pct;
 
-                let targetDigit = 0;
-                let targetCount = counts[0];
-
-                if (strategy_id === 'MATCHES') {
-                    // Find least frequent for matches? Or most frequent?
-                    // Guide says "Predict exact digit match". Usually you trade frequency.
-                    targetDigit = counts.indexOf(Math.max(...counts));
-                    targetCount = counts[targetDigit];
-                } else {
-                    targetDigit = counts.indexOf(Math.min(...counts));
-                    targetCount = counts[targetDigit];
+                if (power_decreasing) {
+                    strategy.is_unstable = true;
+                    strategy.market_message = 'UNSTABLE MARKET - Power Decreasing';
+                    return { action: 'WAIT' };
                 }
 
-                const confidence = (targetCount / 50) * 100;
+                strategy.is_unstable = false;
 
-                return {
-                    action: confidence >= strategy.minConfidence ? 'TRADE' : 'WAIT',
-                    contractType: strategy_id === 'MATCHES' ? 'DIGITMATCH' : 'DIGITDIFF',
-                    prediction: targetDigit,
-                    confidence,
-                };
+                // Suggestions
+                if (is_over) {
+                    const sorted_over = [5, 6, 7, 8, 9].sort((a, b) => this.digit_stats[b].percentage - this.digit_stats[a].percentage);
+                    strategy.suggested_prediction = `OVER ${Math.min(sorted_over[0], sorted_over[1])}`;
+                } else {
+                    const sorted_under = [0, 1, 2, 3, 4].sort((a, b) => this.digit_stats[b].percentage - this.digit_stats[a].percentage);
+                    strategy.suggested_prediction = `UNDER ${Math.max(sorted_under[0], sorted_under[1])}`;
+                }
+
+                if (best_bias_pct >= 55 && power_increasing) {
+                    // Entry point: use highest power digit in the range
+                    const last_digit = digits[digits.length - 1];
+                    let should_enter = false;
+
+                    if (is_over) {
+                        // Find highest power digit in over range (5-9)
+                        const over_digits = this.digit_stats.filter(s => s.digit > 4).sort((a, b) => b.percentage - a.percentage);
+                        const highest_over_digit = over_digits[0]?.digit;
+                        if (last_digit === highest_over_digit && getPowerTrend(highest_over_digit) === 'increasing') {
+                            should_enter = true;
+                        }
+                    } else {
+                        // Find highest power digit in under range (0-4)
+                        const under_digits = this.digit_stats.filter(s => s.digit <= 4).sort((a, b) => b.percentage - a.percentage);
+                        const highest_under_digit = under_digits[0]?.digit;
+                        if (last_digit === highest_under_digit && getPowerTrend(highest_under_digit) === 'increasing') {
+                            should_enter = true;
+                        }
+                    }
+
+                    if (should_enter) {
+                        strategy.market_message = `TRADING ${is_over ? 'OVER' : 'UNDER'}...`;
+                        return {
+                            action: 'TRADE',
+                            contractType: is_over ? 'DIGITOVER' : 'DIGITUNDER',
+                            prediction: strategy.prediction || (is_over ? 4 : 5),
+                            confidence: best_bias_pct
+                        };
+                    } else {
+                        strategy.market_message = `WAIT - Entry signal pending (${best_bias_pct.toFixed(1)}%)`;
+                    }
+                } else if (best_bias_pct > 52) {
+                    strategy.market_message = `WAIT - Market warming up (${best_bias_pct.toFixed(1)}%)`;
+                } else {
+                    strategy.market_message = 'Analyzing market bias...';
+                }
+
+                return { action: 'WAIT' };
+            }
+            case 'DIFFERS': {
+                // Check for unstable market (general power decrease)
+                const history = strategy.power_history || [];
+                if (history.length >= 2) {
+                    const current_total = this.digit_stats.reduce((acc, s) => acc + Math.abs(s.percentage - 10), 0);
+                    const prev_total = history[history.length - 2].reduce((acc, p) => acc + Math.abs(p - 10), 0);
+
+                    if (current_total < prev_total) {
+                        strategy.is_unstable = true;
+                        strategy.market_message = 'UNSTABLE MARKET - Power Decreasing';
+                        return { action: 'WAIT' };
+                    }
+                }
+                strategy.is_unstable = false;
+
+                // selected digit should NOT be most, 2nd most, or least. 
+                // digit to differ should be below 10% and decreasingly.
+                const valid_digits = [2, 3, 4, 5, 6, 7].filter(d =>
+                    d !== most_appearing && d !== second_most && d !== least_appearing
+                );
+
+                const stats_2_7 = this.digit_stats.filter(s => valid_digits.includes(s.digit));
+                const target = stats_2_7.find(s => s.percentage < 10 && getPowerTrend(s.digit) === 'decreasing');
+
+                if (target) {
+                    // Entry point: when least or most appearing digit appears
+                    const last_digit = digits[digits.length - 1];
+                    if (last_digit === most_appearing || last_digit === least_appearing) {
+                        strategy.market_message = `TRADING DIFFERS ${target.digit}...`;
+                        return { action: 'TRADE', contractType: 'DIGITDIFF', prediction: target.digit, confidence: 90 };
+                    }
+                    strategy.market_message = `Signal Lock: Digit ${target.digit} - Waiting for entry...`;
+                } else {
+                    strategy.market_message = 'Scanning for low-power digits (2-7)...';
+                }
+                return { action: 'WAIT' };
+            }
+            case 'MATCHES': {
+                // MATCHES uses 1s markets ONLY
+                if (strategy.ticks !== 1) {
+                    strategy.market_message = 'MATCHES requires 1-tick duration';
+                    return { action: 'WAIT' };
+                }
+
+                // Entry: highest or least or 2nd most digit increases in power
+                const targets = [most_appearing, second_most, least_appearing];
+                const increasing_target = targets.find(d => getPowerTrend(d) === 'increasing');
+
+                if (increasing_target !== undefined) {
+                    strategy.market_message = `TRADING MATCHES ${increasing_target}...`;
+                    return { action: 'TRADE', contractType: 'DIGITMATCH', prediction: increasing_target, confidence: 20 };
+                }
+                strategy.market_message = 'Waiting for power surge...';
+                return { action: 'WAIT' };
             }
             default:
                 return { action: 'WAIT' };
         }
     };
 
-    checkRiskLimits = (): boolean => {
-        // Daily loss limit (Stop Loss)
-        if (this.enable_tp_sl && this.session_pl <= -this.stop_loss) return false;
+    checkRiskLimits = (strategy: TStrategy): boolean => {
+        // Individual bot loss limit (Stop Loss)
+        if (strategy.enable_tp_sl && strategy.profit_loss <= -strategy.stop_loss) return false;
 
-        // Take Profit
-        if (this.enable_tp_sl && this.session_pl >= this.take_profit) return false;
+        // Individual bot Take Profit
+        if (strategy.enable_tp_sl && strategy.profit_loss >= strategy.take_profit) return false;
 
-        // Max Consecutive Losses
-        if (this.is_max_loss_enabled && this.consecutive_losses >= this.max_consecutive_losses) return false;
+        // Individual bot Max Consecutive Losses
+        if (strategy.is_max_loss_enabled && strategy.consecutive_losses >= strategy.max_consecutive_losses) return false;
 
-        // Max Stake Limit
-        if (this.is_max_stake_enabled && this.current_stake > this.max_stake_limit) return false;
+        // Global Max Stake Limit (still useful as a safety)
+        if (this.is_max_stake_enabled && strategy.current_stake > this.max_stake_limit) return false;
 
-        // Safety fallback: hardcoded absolute limit if nothing else is set
+        // Global Session P/L (Safety fallback)
         if (this.session_pl <= -500) return false;
 
         return true;
@@ -983,17 +1333,29 @@ export default class SmartTradingStore {
                             };
                             this.trade_history.push(trade_result as TTradeHistory);
 
+                            // Update global stats
                             if (status === 'won') {
-                                strategy.current_stake = strategy.stake;
                                 this.wins++;
+                                // Keep global consecutive_losses for overall safety if needed
                                 this.consecutive_losses = 0;
                             } else {
-                                strategy.current_stake *= strategy.martingale;
                                 this.losses++;
                                 this.consecutive_losses++;
                             }
                             this.session_pl += profit;
                             this.max_drawdown = Math.min(this.max_drawdown, this.session_pl);
+
+                            // Update per-strategy stats
+                            if (status === 'won') {
+                                strategy.total_wins++;
+                                strategy.consecutive_losses = 0;
+                                strategy.current_stake = strategy.stake;
+                            } else {
+                                strategy.total_losses++;
+                                strategy.consecutive_losses++;
+                                strategy.current_stake *= strategy.martingale;
+                            }
+                            strategy.profit_loss += profit;
                             strategy.status = 'waiting';
                         });
 
@@ -1209,6 +1571,129 @@ export default class SmartTradingStore {
             case 'EVEN_ODD': return signal.targetSide === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
             case 'OVER_UNDER': return signal.targetSide === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER';
             default: return 'DIGITDIFF';
+        }
+    };
+
+    @action
+    scanBestMarkets = async () => {
+        if (!this.root_store.common.is_socket_opened || this.is_scanning || !api_base.api) return;
+
+        this.is_scanning = true;
+        this.scan_results = [];
+        this.all_markets_stats = [];
+
+        try {
+            // Get all synthetic indices symbols
+            const symbols = Object.values(this.active_symbols_data)
+                .filter(s => s.symbol.startsWith('1HZ') || s.symbol.startsWith('R_') || s.symbol.startsWith('JD'))
+                .map(s => s.symbol);
+
+            const analysis_promises = symbols.map(async symbol => {
+                try {
+                    const response = await api_base.api.send({
+                        ticks_history: symbol,
+                        adjust_start_time: 1,
+                        count: 100,
+                        end: 'latest',
+                        style: 'ticks',
+                    });
+
+                    if (response.error || !response.history?.prices) return null;
+
+                    const prices = response.history.prices;
+                    const current_price = prices[prices.length - 1];
+                    const digits = prices.map((p: number | string) => {
+                        const s = String(p);
+                        return parseInt(s[s.length - 1]);
+                    });
+
+                    const last_digit = digits[digits.length - 1];
+
+                    // Calculate digit frequency
+                    const digit_counts = Array(10).fill(0);
+                    digits.forEach((d: number) => digit_counts[d]++);
+                    const digit_percentages = digit_counts.map(c => (c / digits.length) * 100);
+
+                    // Even/Odd statistics
+                    const evens = digits.filter((d: number) => d % 2 === 0).length;
+                    const even_pct = (evens / digits.length) * 100;
+                    const odd_pct = 100 - even_pct;
+
+                    // Over/Under statistics
+                    const over = digits.filter((d: number) => d > 4).length;
+                    const over_pct = (over / digits.length) * 100;
+                    const under_pct = 100 - over_pct;
+
+                    // Top 3 digits for Matches
+                    const sorted_indices = digit_counts
+                        .map((count, digit) => ({ digit, count }))
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 3)
+                        .map(item => item.digit);
+
+                    // Valid Differs targets (2-7, <10%, excluding extremes)
+                    const sorted_by_freq = digit_counts
+                        .map((count, digit) => ({ digit, percentage: (count / digits.length) * 100 }))
+                        .sort((a, b) => b.percentage - a.percentage);
+
+                    const most_frequent = sorted_by_freq[0].digit;
+                    const second_most = sorted_by_freq[1].digit;
+                    const least_frequent = sorted_by_freq[sorted_by_freq.length - 1].digit;
+
+                    const differs_targets = [2, 3, 4, 5, 6, 7].filter(d =>
+                        d !== most_frequent &&
+                        d !== second_most &&
+                        d !== least_frequent &&
+                        digit_percentages[d] < 10
+                    );
+
+                    // Calculate overall market score
+                    const ev_skew = Math.abs(even_pct - odd_pct);
+                    const ou_skew = Math.abs(over_pct - under_pct);
+                    const score = Math.max(ev_skew, ou_skew);
+                    const reason = ev_skew > ou_skew
+                        ? `Strong ${even_pct > odd_pct ? 'Even' : 'Odd'} bias (${score.toFixed(1)}%)`
+                        : `Strong ${over_pct > under_pct ? 'Over' : 'Under'} bias (${score.toFixed(1)}%)`;
+
+                    return {
+                        symbol,
+                        price: String(current_price),
+                        last_digit,
+                        even_pct,
+                        odd_pct,
+                        over_pct,
+                        under_pct,
+                        top_matches: sorted_indices,
+                        differs_targets,
+                        timestamp: Date.now(),
+                        score,
+                        reason,
+                    };
+                } catch (e) {
+                    return null;
+                }
+            });
+
+            const results = (await Promise.all(analysis_promises)).filter(r => r !== null);
+            results.sort((a, b) => (b?.score || 0) - (a?.score || 0));
+
+            runInAction(() => {
+                this.all_markets_stats = results as any[];
+                this.scan_results = results.map(r => ({ symbol: r.symbol, score: r.score, reason: r.reason }));
+
+                if (results.length > 0) {
+                    this.best_market = results[0].symbol;
+                    this.market_fit_score = Math.round(results[0].score);
+
+                    // Automatically switch to the best market
+                    this.setSymbol(results[0].symbol);
+                }
+                this.is_scanning = false;
+            });
+        } catch (error) {
+            runInAction(() => {
+                this.is_scanning = false;
+            });
         }
     };
 

@@ -3,29 +3,31 @@
 .announcements {
     position: absolute;
     inset-inline-end: 2.4rem;
-    top: 1.8rem;
-    z-index: 1;
-
-    @include mobile-or-tablet-screen {
-        inset-inline-end: 1.6rem;
-    }
+    top: 2.4rem;
+    z-index: 100;
 
     &__button {
         @include flex-center;
-
-        padding: 0.8rem 1.4rem;
-        border: none;
+        padding: 0.8rem 1.6rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         outline: none;
-        border-radius: 2.4rem;
-        background-color: var(--general-section-1);
+        border-radius: 5rem;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(8px);
         cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 68, 79, 0.3);
+            transform: translateY(-2px);
+        }
 
         @include mobile-or-tablet-screen {
-            height: 3.2rem;
-            width: 3.2rem;
-            line-height: 3.6rem;
-            text-align: center;
+            height: 4rem;
+            width: 4rem;
             padding: 0;
+            border-radius: 50%;
         }
     }
 

@@ -104,7 +104,7 @@
 
             &__list {
                 background: #6b2d8f; // Deep purple (matching reference image)
-                justify-content: start;
+                justify-content: start !important;
                 flex-shrink: 0;
                 overflow-x: hidden; // Disable horizontal scrolling
                 -ms-overflow-style: none;
@@ -118,8 +118,12 @@
                 }
 
                 &--header {
+                    width: 100% !important;
+
                     &--main {
                         &__tabs {
+                            width: 100% !important;
+
                             @include mobile-or-tablet-screen {
                                 width: 100%;
                                 overflow-x: auto;
@@ -141,6 +145,8 @@
                 overflow-y: auto;
                 overflow-x: hidden;
                 height: 100%;
+                display: block;
+                position: relative;
 
                 // Smooth scrolling
                 scroll-behavior: smooth;
@@ -193,6 +199,7 @@
                     &__tabs {
                         display: flex;
                         justify-content: space-between;
+                        width: 100% !important;
 
                         @include mobile-or-tablet-screen {
                             flex-direction: column;

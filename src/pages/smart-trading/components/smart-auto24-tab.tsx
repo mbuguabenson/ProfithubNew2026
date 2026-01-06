@@ -1,343 +1,245 @@
-import React from 'react';
+import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
+import { runInAction } from 'mobx';
 import { useStore } from '@/hooks/useStore';
 import { TStrategy } from '@/stores/smart-trading-store';
-import { Localize } from '@deriv-com/translations';
 import classNames from 'classnames';
+import {
+    StandalonePlayFillIcon,
+    StandaloneSquareFillIcon,
+    StandaloneGearRegularIcon,
+    StandaloneChartAreaRegularIcon,
+} from '@deriv/quill-icons';
+import DigitStats from '../../auto-trader/digit-stats';
+import LastDigits from '../../auto-trader/last-digits';
+import ComprehensiveStats from '../../auto-trader/comprehensive-stats';
 import './smart-auto24-tab.scss';
 
-const SmartAuto24Tab = observer(() => {
+
+
+const BotCard = observer(({ strategy }: { strategy: TStrategy }) => {
     const { smart_trading } = useStore();
-    const {
-        is_smart_auto24_running,
-        smart_auto24_strategy,
-        strategies,
-        wins,
-        losses,
-        session_pl,
-        trade_history,
-        is_connected,
-        enable_tp_sl,
-        take_profit,
-        stop_loss,
-        max_consecutive_losses,
-        is_max_loss_enabled,
-        max_stake_limit,
-        is_max_stake_enabled,
-    } = smart_trading;
+    const [is_settings_open, setIsSettingsOpen] = useState(false);
 
-    const current_strategy = strategies[smart_auto24_strategy];
-    const total_trades = wins + losses;
-    const win_rate = total_trades > 0 ? (wins / total_trades) * 100 : 0;
+    const toggleBot = () => smart_trading.toggleBot(strategy.id);
+    const updateSetting = (key: keyof TStrategy, value: any) => smart_trading.updateStrategySetting(strategy.id, key, value);
 
-    const handleToggleBot = () => {
-        smart_trading.is_smart_auto24_running = !is_smart_auto24_running;
-    };
-
-    const handleStrategyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        smart_trading.smart_auto24_strategy = e.target.value;
-    };
-
-    const updateBaseStake = (val: string) => {
-        const stake = parseFloat(val);
-        if (!isNaN(stake)) current_strategy.stake = stake;
-    };
-
-    const updateMultiplier = (val: string) => {
-        const mult = parseFloat(val);
-        if (!isNaN(mult)) current_strategy.martingale = mult;
-    };
+    const winRate = strategy.total_wins + strategy.total_losses > 0
+        ? ((strategy.total_wins / (strategy.total_wins + strategy.total_losses)) * 100).toFixed(0)
+        : '0';
 
     return (
-        <div className='smart-auto24-tab'>
-            {/* Bot Status Header */}
-            <div className='card status-header'>
-                <div className='status-info'>
-                    <div className={classNames('indicator', { running: is_smart_auto24_running })} />
-                    <div>
-                        <div className='title'>
-                            {is_smart_auto24_running ? (
-                                <Localize i18n_default_text='BOT RUNNING' />
-                            ) : (
-                                <Localize i18n_default_text='BOT STOPPED' />
-                            )}
-                        </div>
-                        <div className='subtitle'>
-                            {is_smart_auto24_running ? (
-                                <Localize i18n_default_text='Trading automatically 24/7' />
-                            ) : (
-                                <Localize i18n_default_text='Ready to start Smart Auto 24' />
-                            )}
-                        </div>
+        <div className={classNames('glass-card bot-card', { 'running': strategy.is_running })}>
+            <div className='bot-header'>
+                <div className='identity'>
+                    <div className='icon-box'>
+                        <StandaloneGearRegularIcon />
                     </div>
-                </div>
-
-                <button
-                    onClick={handleToggleBot}
-                    disabled={!is_connected}
-                    className={classNames('btn-toggle', is_smart_auto24_running ? 'stop' : 'start')}
-                >
-                    {is_smart_auto24_running ? (
-                        <Localize i18n_default_text='STOP' />
-                    ) : (
-                        <Localize i18n_default_text='START' />
-                    )}
-                </button>
-            </div>
-
-            {/* Strategy Configuration */}
-            <div className='card config-grid'>
-                <div className='input-group'>
-                    <label>
-                        <Localize i18n_default_text='Strategy' />
-                    </label>
-                    <select
-                        value={smart_auto24_strategy}
-                        onChange={handleStrategyChange}
-                        disabled={is_smart_auto24_running}
-                    >
-                        {Object.values(strategies).map((s: TStrategy) => (
-                            <option key={s.id} value={s.id}>
-                                {s.name} (x{s.defaultMultiplier || s.martingale})
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className='input-group'>
-                    <label>
-                        <Localize i18n_default_text='Base Stake' />
-                    </label>
-                    <input
-                        type='number'
-                        value={current_strategy.stake}
-                        onChange={e => updateBaseStake(e.target.value)}
-                        disabled={is_smart_auto24_running}
-                        min='0.35'
-                        step='0.01'
-                    />
-                </div>
-
-                <div className='input-group'>
-                    <label>
-                        <Localize i18n_default_text='Martingale Multiplier' />
-                    </label>
-                    <input
-                        type='number'
-                        value={current_strategy.martingale}
-                        onChange={e => updateMultiplier(e.target.value)}
-                        disabled={is_smart_auto24_running}
-                        min='1.1'
-                        max='50.0'
-                        step='0.1'
-                    />
-                </div>
-            </div>
-
-            {/* Risk Management */}
-            <div className='card risk-card'>
-                <div className='risk-header'>
-                    <Localize i18n_default_text='Risk Management' />
-                </div>
-                <div className='config-grid'>
-                    <div className='input-group'>
-                        <label className='checkbox-label'>
-                            <input
-                                type='checkbox'
-                                checked={enable_tp_sl}
-                                onChange={e => (smart_trading.enable_tp_sl = e.target.checked)}
-                                disabled={is_smart_auto24_running}
-                            />
-                            <Localize i18n_default_text='Take Profit ($)' />
-                        </label>
-                        <input
-                            type='number'
-                            value={take_profit}
-                            onChange={e => (smart_trading.take_profit = parseFloat(e.target.value))}
-                            disabled={is_smart_auto24_running || !enable_tp_sl}
-                        />
-                    </div>
-
-                    <div className='input-group'>
-                        <label className='checkbox-label'>
-                            <input
-                                type='checkbox'
-                                checked={enable_tp_sl}
-                                onChange={e => (smart_trading.enable_tp_sl = e.target.checked)}
-                                disabled={is_smart_auto24_running}
-                            />
-                            <Localize i18n_default_text='Stop Loss ($)' />
-                        </label>
-                        <input
-                            type='number'
-                            value={stop_loss}
-                            onChange={e => (smart_trading.stop_loss = parseFloat(e.target.value))}
-                            disabled={is_smart_auto24_running || !enable_tp_sl}
-                        />
-                    </div>
-
-                    <div className='input-group'>
-                        <label className='checkbox-label'>
-                            <input
-                                type='checkbox'
-                                checked={is_max_loss_enabled}
-                                onChange={e => (smart_trading.is_max_loss_enabled = e.target.checked)}
-                                disabled={is_smart_auto24_running}
-                            />
-                            <Localize i18n_default_text='Max Consecutive Losses' />
-                        </label>
-                        <input
-                            type='number'
-                            value={max_consecutive_losses}
-                            onChange={e => (smart_trading.max_consecutive_losses = parseInt(e.target.value))}
-                            disabled={is_smart_auto24_running || !is_max_loss_enabled}
-                        />
-                    </div>
-
-                    <div className='input-group'>
-                        <label className='checkbox-label'>
-                            <input
-                                type='checkbox'
-                                checked={is_max_stake_enabled}
-                                onChange={e => (smart_trading.is_max_stake_enabled = e.target.checked)}
-                                disabled={is_smart_auto24_running}
-                            />
-                            <Localize i18n_default_text='Max Stake Limit' />
-                        </label>
-                        <input
-                            type='number'
-                            value={max_stake_limit}
-                            onChange={e => (smart_trading.max_stake_limit = parseFloat(e.target.value))}
-                            disabled={is_smart_auto24_running || !is_max_stake_enabled}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Performance Dashboard */}
-            <div className='performance-dashboard'>
-                <div className='card perf-card'>
-                    <div className='label'>
-                        <Localize i18n_default_text='Profit/Loss' />
-                    </div>
-                    <div className={classNames('value', session_pl >= 0 ? 'positive' : 'negative')}>
-                        ${session_pl.toFixed(2)}
-                    </div>
-                </div>
-
-                <div className='card perf-card'>
-                    <div className='label'>
-                        <Localize i18n_default_text='Total Trades' />
-                    </div>
-                    <div className='value'>{total_trades}</div>
-                </div>
-
-                <div className='card perf-card'>
-                    <div className='label'>
-                        <Localize i18n_default_text='Win Rate' />
-                    </div>
-                    <div className='value'>{win_rate.toFixed(1)}%</div>
-                </div>
-
-                <div className='card perf-card'>
-                    <div className='label'>
-                        <Localize i18n_default_text='Current Stake' />
-                    </div>
-                    <div className='value'>${current_strategy.current_stake.toFixed(2)}</div>
-                    {current_strategy.current_stake > current_strategy.stake && (
-                        <div className='extra'>
-                            {(current_strategy.current_stake / current_strategy.stake).toFixed(1)}x base
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Digit Analysis View */}
-            <div className='card analysis-card'>
-                <div className='analysis-header'>
-                    <Localize i18n_default_text='Even/Odd Analysis' />
-                    <div className='current-streak'>
-                        <Localize i18n_default_text='Current Streak: ' />
-                        <span className={classNames('streak-val', smart_trading.current_streak >= 0 ? 'win' : 'loss')}>
-                            {Math.abs(smart_trading.current_streak)}x {smart_trading.current_streak >= 0 ? 'win' : 'loss'}
+                    <div className='info'>
+                        <h3>{strategy.name}</h3>
+                        <span className={classNames('status', { 'on': strategy.is_running })}>
+                            {strategy.is_running ? '● ACTIVE' : '○ READY'}
                         </span>
                     </div>
                 </div>
-                
-                <div className='percentage-bars'>
-                    <div className='bar-wrapper even'>
-                        <div className='bar-label'>Even</div>
-                        <div className='bar-value'>{smart_trading.calculateProbabilities().even.toFixed(1)}%</div>
-                        <div className='bar-fill' style={{ width: `${smart_trading.calculateProbabilities().even}%` }}></div>
-                    </div>
-                    <div className='bar-wrapper odd'>
-                        <div className='bar-label'>Odd</div>
-                        <div className='bar-value'>{smart_trading.calculateProbabilities().odd.toFixed(1)}%</div>
-                        <div className='bar-fill' style={{ width: `${smart_trading.calculateProbabilities().odd}%` }}></div>
-                    </div>
+                <div className='actions'>
+                    <button className='settings-btn' onClick={() => setIsSettingsOpen(!is_settings_open)}>
+                        <StandaloneGearRegularIcon />
+                    </button>
+                    <button className={classNames('play-btn', { 'stop': strategy.is_running })} onClick={toggleBot}>
+                        {strategy.is_running ? <StandaloneSquareFillIcon /> : <StandalonePlayFillIcon />}
+                    </button>
                 </div>
             </div>
 
-            {/* Trade History Table */}
-            <div className='card history-card'>
-                <div className='history-header'>
-                    <Localize i18n_default_text='Trade History' />
+            <div className='bot-metrics'>
+                <div className='metric profit'>
+                    <span className='lbl'>NET PROFIT</span>
+                    <span className={classNames('val', { 'pos': strategy.profit_loss >= 0, 'neg': strategy.profit_loss < 0 })}>
+                        ${strategy.profit_loss.toFixed(2)}
+                    </span>
+                </div>
+                <div className='metric'>
+                    <span className='lbl'>WIN RATE</span>
+                    <span className='val'>{winRate}%</span>
+                </div>
+            </div>
+
+            <div className='bot-controls'>
+                <div className='control-row'>
+                    <span className='icon'>M</span>
+                    <select
+                        value={strategy.selected_symbol || 'R_100'}
+                        onChange={(e) => updateSetting('selected_symbol', e.target.value)}
+                        disabled={strategy.is_running}
+                    >
+                        {Object.values(smart_trading.active_symbols_data)
+                            .filter(s => s.symbol.startsWith('R_') || s.symbol.startsWith('1HZ') || s.symbol.startsWith('JD'))
+                            .map(s => <option key={s.symbol} value={s.symbol}>{s.display_name}</option>)}
+                    </select>
+                </div>
+                <div className='insight-box' style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#8b9bb4' }}>{strategy.market_message || "Awaiting Analysis..."}</span>
+                    {strategy.suggested_prediction !== undefined && (
+                        <strong style={{ color: '#00d4ff' }}>Target: {strategy.suggested_prediction}</strong>
+                    )}
+                </div>
+            </div>
+
+            <div className='bot-footer'>
+                <span className='wins'>{strategy.total_wins} WINS</span>
+                <span className='losses'>{strategy.total_losses} LOSSES</span>
+            </div>
+
+            {is_settings_open && (
+                <div className='settings-drawer'>
+                    <div className='setting-row'>
+                        <label>Stake ($)</label>
+                        <input type="number" value={strategy.stake} onChange={e => updateSetting('stake', parseFloat(e.target.value))} disabled={strategy.is_running} />
+                    </div>
+                    <div className='setting-row'>
+                        <label>Martingale Factor</label>
+                        <input type="number" value={strategy.martingale} onChange={e => updateSetting('martingale', parseFloat(e.target.value))} disabled={strategy.is_running} />
+                    </div>
+                    <div className='risk-header'>Risk Controls</div>
+                    <div className='setting-row'>
+                        <label>Take Profit ($)</label>
+                        <div className="input-with-check">
+                            <input type="checkbox" checked={strategy.enable_tp_sl} onChange={e => updateSetting('enable_tp_sl', e.target.checked)} disabled={strategy.is_running} />
+                            <input type="number" value={strategy.take_profit} disabled={!strategy.enable_tp_sl || strategy.is_running} onChange={e => updateSetting('take_profit', parseFloat(e.target.value))} />
+                        </div>
+                    </div>
+                    <div className='setting-row'>
+                        <label>Stop Loss ($)</label>
+                        <div className="input-with-check">
+                            <input type="checkbox" checked={strategy.enable_tp_sl} onChange={e => updateSetting('enable_tp_sl', e.target.checked)} disabled={strategy.is_running} />
+                            <input type="number" value={strategy.stop_loss} disabled={!strategy.enable_tp_sl || strategy.is_running} onChange={e => updateSetting('stop_loss', parseFloat(e.target.value))} />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+});
+
+const SmartAuto24Tab = observer(() => {
+    const { smart_trading } = useStore();
+    const { strategies, is_connected } = smart_trading;
+
+    return (
+        <div className='smart-auto24-tab'>
+            {/* Premium Header - Smart Analysis Style */}
+            <div className='premium-market-header'>
+                <div className='market-select-glass'>
+                    <span className='lbl'>
+                        MARKET
+                        <span className={`connection-badge ${is_connected ? 'online' : 'offline'}`} style={{ fontSize: '0.6rem', color: is_connected ? '#10b981' : '#f43f5e' }}>
+                            {is_connected ? '● LIVE' : '○ OFF'}
+                        </span>
+                    </span>
+                    <select
+                        value={smart_trading.symbol}
+                        onChange={(e) => smart_trading.setSymbol(e.target.value)}
+                        disabled={smart_trading.is_scanning}
+                    >
+                        {Object.values(smart_trading.active_symbols_data)
+                            .filter(s => s.symbol.startsWith('R_') || s.symbol.startsWith('1HZ') || s.symbol.startsWith('JD'))
+                            .sort((a, b) => a.display_name.localeCompare(b.display_name))
+                            .map(s => (
+                                <option key={s.symbol} value={s.symbol}>{s.display_name}</option>
+                            ))}
+                    </select>
                 </div>
 
-                <div className='table-container'>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>
-                                    <Localize i18n_default_text='Time' />
-                                </th>
-                                <th>
-                                    <Localize i18n_default_text='Type' />
-                                </th>
-                                <th>
-                                    <Localize i18n_default_text='Stake' />
-                                </th>
-                                <th>
-                                    <Localize i18n_default_text='Result' />
-                                </th>
-                                <th>
-                                    <Localize i18n_default_text='P/L' />
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[...trade_history]
-                                .reverse()
-                                .slice(0, 20)
-                                .map((trade, idx) => (
-                                    <tr key={idx}>
-                                        <td>{new Date(trade.timestamp).toLocaleTimeString()}</td>
-                                        <td>{trade.contractType}</td>
-                                        <td>${trade.stake.toFixed(2)}</td>
-                                        <td>
-                                            <span
-                                                className={classNames(
-                                                    'badge',
-                                                    trade.result === 'WON' ? 'win' : 'loss'
-                                                )}
-                                            >
-                                                {trade.result}
-                                            </span>
-                                        </td>
-                                        <td
-                                            className={classNames(
-                                                'profit',
-                                                trade.profitLoss >= 0 ? 'positive' : 'negative'
-                                            )}
-                                        >
-                                            {trade.profitLoss >= 0 ? '+' : ''}
-                                            {trade.profitLoss.toFixed(2)}
-                                        </td>
-                                    </tr>
-                                ))}
-                        </tbody>
-                    </table>
+                <div className='price-display-glass'>
+                    <span className='lbl'>LIVE PRICE</span>
+                    <span className='val'>{smart_trading.current_price}</span>
                 </div>
+
+                <div className='digit-display-glass'>
+                    <span className='lbl'>LAST DIGIT</span>
+                    <div className={classNames('digit-box', `d-${smart_trading.last_digit}`)}>{smart_trading.last_digit ?? '-'}</div>
+                </div>
+
+                {/* Scan Action Card */}
+                <div
+                    className={classNames('scan-action-card', {
+                        'scanning': smart_trading.is_scanning
+                    })}
+                    style={{ minWidth: '200px', display: 'flex', flexDirection: 'column' }}
+                    onClick={() => {
+                        if (!smart_trading.is_scan_expanded && !smart_trading.is_scanning) {
+                            smart_trading.scanBestMarkets();
+                            runInAction(() => smart_trading.is_scan_expanded = true);
+                        } else {
+                            runInAction(() => smart_trading.is_scan_expanded = !smart_trading.is_scan_expanded);
+                        }
+                    }}
+                >
+                    <div className='icon'>
+                        {smart_trading.is_scanning ? (
+                            <div className='loader-small' style={{ border: '2px solid white', borderRadius: '50%', borderTopColor: 'transparent', width: '24px', height: '24px', animation: 'spin 1s linear infinite' }} />
+                        ) : (
+                            <StandaloneChartAreaRegularIcon />
+                        )}
+                    </div>
+                    <span className='label'>
+                        {smart_trading.is_scanning ? 'Scanning...' : (smart_trading.is_scan_expanded ? 'Hide Analysis' : 'Scan Markets')}
+                    </span>
+                </div>
+            </div>
+
+            {/* Expanded Scan Results Overlay */}
+            {smart_trading.is_scan_expanded && (
+                <div className='scan-results-overlay'>
+                    <h3>
+                        Market Analysis Results
+                        <button onClick={() => runInAction(() => smart_trading.is_scan_expanded = false)}>Close</button>
+                    </h3>
+                    <div className='results-grid'>
+                        {smart_trading.all_markets_stats.map(stat => (
+                            <div
+                                key={stat.symbol}
+                                className={classNames('result-item', { 'best': stat.symbol === smart_trading.best_market })}
+                                onClick={() => {
+                                    smart_trading.setSymbol(stat.symbol);
+                                    runInAction(() => smart_trading.is_scan_expanded = false);
+                                }}
+                            >
+                                <div className='res-header'>
+                                    <span>{smart_trading.active_symbols_data[stat.symbol]?.display_name || stat.symbol}</span>
+                                    <span className='score'>{stat.score.toFixed(0)}%</span>
+                                </div>
+                                <div className='res-reason'>{stat.reason}</div>
+                                <div className='res-stats'>
+                                    <span>LD: <strong>{stat.last_digit}</strong></span>
+                                    <span>E: <strong>{stat.even_pct.toFixed(0)}%</strong></span>
+                                    <span>O: <strong>{stat.over_pct.toFixed(0)}%</strong></span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+
+
+            {/* Stats Dashboard */}
+            <div className='stats-dashboard' style={{ marginBottom: '2rem' }}>
+                <div className='stats-row top'>
+                    <DigitStats />
+                </div>
+                <div className='stats-row middle' style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <LastDigits />
+                    <ComprehensiveStats />
+                </div>
+            </div>
+
+            {/* Bots Grid */}
+            <div className='bots-grid'>
+                {Object.values(strategies).map((bot) => (
+                    <BotCard key={bot.id} strategy={bot} />
+                ))}
             </div>
         </div>
     );

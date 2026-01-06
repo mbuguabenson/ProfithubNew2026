@@ -33,14 +33,46 @@ const OverUnderAnalysis = observer(() => {
     const matchesProb = digit_stats[selectedDigit]?.percentage || 0;
     const differsProb = 100 - matchesProb;
 
+
+    const is_strategy_active = auto_trader.active_strategy === 'OVER_UNDER';
+    const { strategy_status, trade_message, is_market_unstable, is_running, setActiveStrategy } = auto_trader;
+
+    const toggleStrategy = () => {
+        if (is_strategy_active && is_running) {
+            auto_trader.is_running = false;
+            setActiveStrategy(null);
+        } else {
+            setActiveStrategy('OVER_UNDER');
+            auto_trader.is_running = true;
+        }
+    };
+
     return (
         <div className='over-under-analysis'>
-            <div className='over-under-analysis__title'>
-                <Localize i18n_default_text='Over / Under Probability Analysis' />
+            <div className='over-under-analysis__header_group'>
+                <div className='over-under-analysis__title'>
+                    <Localize i18n_default_text='Over / Under Strategy & Analysis' />
+                </div>
+                <button
+                    className={classNames('btn-strategy', { 'btn-stop': is_strategy_active && is_running })}
+                    onClick={toggleStrategy}
+                >
+                    {is_strategy_active && is_running ? 'STOP STRATEGY' : 'START AUTO STRATEGY'}
+                </button>
             </div>
 
+            {is_strategy_active && (
+                <div className={classNames('strategy-status-panel', { 'unstable': is_market_unstable })}>
+                    <div className='status-row'>
+                        <span className='label'>Status:</span>
+                        <span className={classNames('value', strategy_status.toLowerCase())}>{strategy_status}</span>
+                    </div>
+                    <div className='message'>{trade_message}</div>
+                </div>
+            )}
+
             <div className='over-under-analysis__selector-label'>
-                <Localize i18n_default_text='Select Digit to Analyze:' />
+                <Localize i18n_default_text='Select Digit to Analyze (Manual):' />
             </div>
             <div className='over-under-analysis__digit-selector'>
                 {Array.from({ length: 10 }, (_, i) => (

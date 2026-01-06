@@ -1,5 +1,4 @@
 import React from 'react';
-import classNames from 'classnames';
 import { observer } from 'mobx-react-lite';
 import Text from '@/components/shared_ui/text';
 import { useStore } from '@/hooks/useStore';
@@ -9,6 +8,8 @@ import OnboardTourHandler from '../tutorials/dbot-tours/onboarding-tour';
 import Announcements from './announcements';
 import Cards from './cards';
 import InfoPanel from './info-panel';
+import DashboardBotList from './bot-list/dashboard-bot-list';
+import Button from '@/components/shared_ui/button';
 
 type TMobileIconGuide = {
     handleTabChange: (active_number: number) => void;
@@ -16,74 +17,107 @@ type TMobileIconGuide = {
 
 const DashboardComponent = observer(({ handleTabChange }: TMobileIconGuide) => {
     const { load_modal, dashboard, client } = useStore();
-    const { dashboard_strategies } = load_modal;
-    const { active_tab, active_tour } = dashboard;
-    const has_dashboard_strategies = !!dashboard_strategies?.length;
     const { isDesktop, isTablet } = useDevice();
+    const [search_query, setSearchQuery] = React.useState('');
+    const has_dashboard_strategies = !!load_modal.dashboard_strategies?.length;
 
     return (
-        <React.Fragment>
-            <div
-                className={classNames('tab__dashboard', {
-                    'tab__dashboard--tour-active': active_tour,
-                })}
-            >
-                <div className='tab__dashboard__content'>
-                    {client.is_logged_in && (
-                        <Announcements is_mobile={!isDesktop} is_tablet={isTablet} handleTabChange={handleTabChange} />
-                    )}
-                    <div className='quick-panel'>
-                        <div
-                            className={classNames('tab__dashboard__header', {
-                                'tab__dashboard__header--listed': isDesktop && has_dashboard_strategies,
-                            })}
-                        >
-                            <div className='tab__dashboard__header-content'>
-                                <div className='tab__dashboard__header-text'>
-                                    <Text
-                                        className='title'
-                                        as='h2'
-                                        color='prominent'
-                                        size={isDesktop ? 'sm' : 's'}
-                                        lineHeight='xxl'
-                                        weight='bold'
-                                    >
-                                        {localize('Load or build your bot')}
-                                    </Text>
-                                    <Text
-                                        as='p'
-                                        color='prominent'
-                                        lineHeight='s'
-                                        size={isDesktop ? 's' : 'xxs'}
-                                        className={classNames('subtitle', { 'subtitle__has-list': has_dashboard_strategies })}
-                                    >
-                                        {localize(
-                                            'Import a bot from your computer or Google Drive, build it from scratch, or start with a quick strategy.'
-                                        )}
-                                    </Text>
-                                </div>
-                                <div className='tab__dashboard__header-action'>
-                                    <button
-                                        className='dc-btn dc-btn--primary dc-btn__large'
-                                        onClick={() => {
-                                            load_modal.toggleLoadModal();
-                                            dashboard.setActiveTab(1); // Switch to Bot Builder where LoadModal is rendered
-                                        }}
-                                    >
-                                        <Text size='xs' weight='bold' color='colored-background'>
-                                            {localize('Load Bot')}
-                                        </Text>
-                                    </button>
-                                </div>
+        <div className='dashboard-container'>
+            <div className='dashboard-content'>
+                {/* Hero Section / Welcome Header */}
+                <header className='dashboard-hero'>
+                    <div className='hero-bg-blobs'>
+                        <div className='blob blob-1' />
+                        <div className='blob blob-2' />
+                        <div className='blob blob-3' />
+                    </div>
+
+                    <div className='hero-text'>
+                        <div className='hero-badge'>{localize('Platform of Choice')}</div>
+                        <Text as='h1' color='prominent' size={isDesktop ? 'xl' : 'm'} weight='bold'>
+                            {localize('Welcome back,')} {client.loginid || localize('Trader')}!
+                        </Text>
+                        <Text as='p' color='prominent' size={isDesktop ? 's' : 'xs'}>
+                            {localize('Your next successful trade starts here. What would you like to build or trade today?')}
+                        </Text>
+
+                        <div className='hero-actions'>
+                            <Button
+                                className='hero-load-button'
+                                has_effect
+                                text={localize('Load Bot')}
+                                onClick={() => load_modal.toggleLoadModal()}
+                                primary
+                                large={isDesktop}
+                                medium={!isDesktop}
+                            />
+                        </div>
+                    </div>
+
+                    <div className='dashboard-market-stats'>
+                        <div className='stat-item'>
+                            <span className='stat-label'>{localize('Active Markets')}</span>
+                            <span className='stat-value'>24/7</span>
+                        </div>
+                        <div className='stat-item'>
+                            <span className='stat-label'>{localize('Live Trades')}</span>
+                            <span className='stat-value'>+12k</span>
+                        </div>
+                        <div className='stat-divider' />
+                        <div className='dashboard-search'>
+                            <div className='search-wrapper'>
+                                <span className='search-icon'>🔍</span>
+                                <input
+                                    type='text'
+                                    placeholder={localize('Search tools...')}
+                                    value={search_query}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className='search-input'
+                                />
                             </div>
                         </div>
-                        <Cards has_dashboard_strategies={has_dashboard_strategies} is_mobile={!isDesktop} />
                     </div>
-                </div>
+                </header>
+
+                {/* Announcements Section */}
+                {client.is_logged_in && (
+                    <div className='announcements-wrapper'>
+                        <Announcements is_mobile={!isDesktop} is_tablet={isTablet} handleTabChange={handleTabChange} />
+                    </div>
+                )}
+
+                {/* Main Action Grid */}
+                <main className='dashboard-grid-container'>
+                    <Cards
+                        has_dashboard_strategies={has_dashboard_strategies}
+                        is_mobile={!isDesktop}
+                        search_query={search_query}
+                        handleTabChange={handleTabChange}
+                    />
+                </main>
+
+                {/* Recent Strategies Section */}
+                {has_dashboard_strategies && (
+                    <section className='recent-strategies-section'>
+                        <div className='section-header'>
+                            <Text as='h2' color='prominent' weight='bold' size='sm'>
+                                {localize('Recent Strategies')}
+                            </Text>
+                            <div className='header-line' />
+                        </div>
+                        <div className='recent-strategies-list'>
+                            <DashboardBotList />
+                        </div>
+                    </section>
+                )}
             </div>
+
+            {/* Side Info Panel */}
             <InfoPanel />
-            {active_tab === 0 && <OnboardTourHandler is_mobile={!isDesktop} />}
-        </React.Fragment>
+
+            {/* Tours and Overlays */}
+            {dashboard.active_tab === 0 && <OnboardTourHandler is_mobile={!isDesktop} />}
+        </div>
     );
 });
 

@@ -128,9 +128,10 @@ export default class LoadModalStore {
     }
 
     get selected_strategy(): TStrategy {
+        const strategies = this.recent_strategies.length > 0 ? this.recent_strategies : this.dashboard_strategies;
         return (
-            this.dashboard_strategies.find((ws: { id: string }) => ws.id === this.selected_strategy_id) ??
-            this.dashboard_strategies[0]
+            strategies.find((ws: { id: string }) => ws.id === this.selected_strategy_id) ??
+            strategies[0]
         );
     }
 
@@ -207,8 +208,10 @@ export default class LoadModalStore {
         const { blockly_store } = this.root_store;
         const { setLoading } = blockly_store;
         setLoading(true);
-        this.loadStrategyOnModalRecentPreview(this.selected_strategy_id);
-        this.updateXmlValuesOnStrategySelection();
+        if (this.selected_strategy_id) {
+            this.loadStrategyOnModalRecentPreview(this.selected_strategy_id);
+            this.updateXmlValuesOnStrategySelection();
+        }
         this.setOpenButtonDisabled(false);
     };
 
@@ -380,10 +383,10 @@ export default class LoadModalStore {
 
         if (this.tab_name === tabs_title.TAB_LOCAL) {
             if (!this.drop_zone) {
-                this.drop_zone = document.querySelector('load-strategy__local-dropzone-area');
+                this.drop_zone = document.querySelector('.load-strategy__local-dropzone-area');
 
                 if (this.drop_zone) {
-                    this.drop_zone.addEventListener('drop', event => this.handleFileChange(event, false));
+                    (this.drop_zone as HTMLElement).addEventListener('drop', event => this.handleFileChange(event, false));
                 }
             }
         }
@@ -399,7 +402,7 @@ export default class LoadModalStore {
 
         // Forget about drop zone when not on Local tab.
         if (this.tab_name !== tabs_title.TAB_LOCAL && this.drop_zone) {
-            this.drop_zone.removeEventListener('drop', event => this.handleFileChange(event, false));
+            (this.drop_zone as HTMLElement).removeEventListener('drop', event => this.handleFileChange(event, false));
         }
         this.setOpenButtonDisabled(false);
     };
@@ -491,13 +494,21 @@ export default class LoadModalStore {
     };
 
     updateXmlValuesOnStrategySelection = () => {
-        if (this.recent_strategies.length === 0) return;
-        updateXmlValues({
-            strategy_id: this.selected_strategy_id,
-            convertedDom: window?.Blockly?.utils?.xml?.textToDom(this.selected_strategy?.xml),
-            file_name: this.selected_strategy?.name,
-            from: this.selected_strategy?.save_type || save_types.UNSAVED,
-        });
+        if (this.recent_strategies.length === 0 || !this.selected_strategy) return;
+        const xml = this.selected_strategy?.xml;
+        if (!xml) return;
+
+        try {
+            updateXmlValues({
+                strategy_id: this.selected_strategy_id,
+                convertedDom: window?.Blockly?.utils?.xml?.textToDom(xml),
+                file_name: this.selected_strategy?.name || '',
+                from: this.selected_strategy?.save_type || save_types.UNSAVED,
+            });
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Error parsing strategy XML', e);
+        }
     };
 
     loadStrategyOnModalRecentPreview = async workspace_id => {
@@ -519,10 +530,18 @@ export default class LoadModalStore {
             if (!this.recent_workspace) this.recent_workspace = window.Blockly.inject(ref_preview, inject_options);
             (this.recent_workspace as any).RTL = isDbotRTL();
 
-            const convertedDom = window.Blockly?.utils?.xml?.textToDom(this.selected_strategy?.xml);
-            const mainWorkspace = window.Blockly?.getMainWorkspace();
-
-            window.Blockly?.Xml?.clearWorkspaceAndLoadFromXml(convertedDom, mainWorkspace);
+            const xml = this.selected_strategy?.xml;
+            if (xml) {
+                try {
+                    const convertedDom = window.Blockly?.utils?.xml?.textToDom(xml);
+                    if (convertedDom) {
+                        window.Blockly?.Xml?.clearWorkspaceAndLoadFromXml(convertedDom, this.recent_workspace);
+                    }
+                } catch (e) {
+                    // eslint-disable-next-line no-console
+                    console.error('Error loading strategy preview', e);
+                }
+            }
         }
         setLoading(false);
         this.setOpenButtonDisabled(false);
